@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Noto_Serif, Public_Sans } from "next/font/google";
+import { Geist, Geist_Mono, Noto_Serif, Public_Sans, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+
+const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
 const publicSansHeading = Public_Sans({
   subsets: ["latin"],
@@ -34,10 +36,9 @@ export default function RootLayout({
     <html
       lang="en"
       className={cn(
-        "font-serif",
-        notoSerif.variable,
-        publicSansHeading.variable,
-      )}
+              notoSerif.variable,
+              publicSansHeading.variable,
+              "font-sans", inter.variable)}
     >
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased`}
