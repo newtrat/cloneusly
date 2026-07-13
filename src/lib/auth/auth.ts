@@ -59,10 +59,9 @@ export function getAuth(): AuthInstance {
   return cachedAuth;
 }
 
-export const auth = new Proxy({} as AuthInstance, {
-  get(_target, prop, receiver) {
-    return Reflect.get(getAuth(), prop, receiver);
-  },
-});
+// The Next.js adapter checks for the `handler` property with the `in` operator.
+// A lazy Proxy does not expose that property to `in`, causing the adapter to
+// attempt to invoke the auth object as a function instead.
+export const auth = getAuth();
 
 export type Session = typeof auth.$Infer.Session;

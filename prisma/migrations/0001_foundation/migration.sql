@@ -1,5 +1,5 @@
-# Cloneusly foundation migration
-# Generated for PostgreSQL. Apply with: npm run db:migrate:deploy
+-- Cloneusly foundation migration
+-- Generated for PostgreSQL. Apply with: npm run db:migrate:deploy
 
 -- CreateEnum
 CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'INACTIVE');

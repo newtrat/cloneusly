@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+const optionalSecret = z.preprocess(
+  (value) =>
+    typeof value === "string" && value.trim() === "" ? undefined : value,
+  z.string().min(16).optional(),
+);
+
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   DIRECT_URL: z.string().min(1).optional(),
@@ -7,7 +13,7 @@ const envSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url(),
   COMPANY_TIME_ZONE: z.string().min(1).default("America/Los_Angeles"),
-  CRON_SECRET: z.string().min(16).optional(),
+  CRON_SECRET: optionalSecret,
   ENABLE_TEST_TOPUPS: z
     .enum(["true", "false"])
     .default("false")

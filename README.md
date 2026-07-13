@@ -9,6 +9,30 @@ Internal peer recognition and points app built with Next.js 15, Better Auth, Pri
 - A non-production PostgreSQL database (Prisma Postgres recommended)
 - A separate test database for integration tests
 
+## Local PostgreSQL setup
+
+Use separate databases for development and integration tests. Never use a
+production database locally.
+
+If PostgreSQL was installed with Homebrew:
+
+```bash
+brew services start postgresql@14
+pg_isready
+createdb cloneusly_dev
+createdb cloneusly_test
+```
+
+`pg_isready` should report `accepting connections`. The `createdb` commands only
+need to run once; PostgreSQL will report an error if a database already exists.
+
+For a default Homebrew installation, use your macOS username in the local
+connection URLs. Replace `YOUR_MACOS_USERNAME` below with `whoami` output:
+
+```bash
+whoami
+```
+
 ## Quick start
 
 ```bash
@@ -20,13 +44,40 @@ cp .env.example .env.local
 Configure `.env.local`:
 
 ```dotenv
-DATABASE_URL=postgresql://...
-DIRECT_URL=postgresql://...
-TEST_DATABASE_URL=postgresql://...
-BETTER_AUTH_SECRET=<32+ random chars>
+DATABASE_URL="postgresql://YOUR_MACOS_USERNAME@localhost:5432/cloneusly_dev?schema=public"
+DIRECT_URL="postgresql://YOUR_MACOS_USERNAME@localhost:5432/cloneusly_dev?schema=public"
+TEST_DATABASE_URL="postgresql://YOUR_MACOS_USERNAME@localhost:5432/cloneusly_test?schema=public"
+BETTER_AUTH_SECRET=<generated secret>
 BETTER_AUTH_URL=http://localhost:3000
 SEED_USER_PASSWORD=<development-only password>
 ```
+
+`DATABASE_URL` and `DIRECT_URL` may be identical for local PostgreSQL. If your
+database role has a password, URL-encode it and include it in the URL, for
+example: `postgresql://user:encoded-password@localhost:5432/cloneusly_dev`.
+
+Generate a unique Better Auth secret for each environment:
+
+```bash
+openssl rand -base64 32
+```
+
+Copy the command output into `BETTER_AUTH_SECRET`. Do not commit `.env.local`
+or reuse the development secret in preview or production.
+
+Before running database scripts, export the variables from `.env.local` into the
+current shell:
+
+```bash
+set -a
+source .env.local
+set +a
+```
+
+`set -a` temporarily auto-exports variables created while sourcing the file, so
+`npm` and Prisma can access `DATABASE_URL`, `DIRECT_URL`, and
+`SEED_USER_PASSWORD`. `set +a` turns auto-export back off. Next.js loads
+`.env.local` for `npm run dev`, but standalone Prisma and seed commands do not.
 
 Prepare the database:
 
@@ -48,12 +99,12 @@ Open [http://localhost:3000](http://localhost:3000). Signed-out visitors are red
 
 After seeding with `SEED_USER_PASSWORD`:
 
-| Email | Handle | Role | Initial giving points |
-|---|---|---|---|
-| alice@cloneusly.local | alice | MEMBER | 100 |
-| bob@cloneusly.local | bob | MEMBER | 100 |
-| carol@cloneusly.local | carol | MEMBER | 100 |
-| tester@cloneusly.local | tester | TESTER | 100 |
+| Email                  | Handle | Role   | Initial giving points |
+| ---------------------- | ------ | ------ | --------------------- |
+| alice@cloneusly.local  | alice  | MEMBER | 100                   |
+| bob@cloneusly.local    | bob    | MEMBER | 100                   |
+| carol@cloneusly.local  | carol  | MEMBER | 100                   |
+| tester@cloneusly.local | tester | TESTER | 100                   |
 
 Initial points are created through labeled test-top-up journal entries, not silent balance edits.
 

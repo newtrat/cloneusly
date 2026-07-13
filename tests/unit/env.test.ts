@@ -27,4 +27,14 @@ describe("env", () => {
     const env = getEnv();
     expect(env.ENABLE_TEST_TOPUPS).toBe(false);
   });
+
+  it("treats a blank optional cron secret as absent", () => {
+    resetEnvCache();
+    process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/db";
+    process.env.BETTER_AUTH_SECRET = "x".repeat(32);
+    process.env.BETTER_AUTH_URL = "http://localhost:3000";
+    process.env.CRON_SECRET = "   ";
+
+    expect(getEnv().CRON_SECRET).toBeUndefined();
+  });
 });
