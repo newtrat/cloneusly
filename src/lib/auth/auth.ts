@@ -5,16 +5,23 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 
 import { getEnv } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
+import { resolveAuthOrigins } from "./origins";
 
 function createAuth() {
   const env = getEnv();
+  const { baseUrl, trustedOrigins } = resolveAuthOrigins({
+    baseUrl: env.BETTER_AUTH_URL,
+    vercelEnvironment: process.env.VERCEL_ENV,
+    vercelUrl: process.env.VERCEL_URL,
+  });
+
   return betterAuth({
     database: prismaAdapter(prisma, {
       provider: "postgresql",
     }),
     secret: env.BETTER_AUTH_SECRET,
-    baseURL: env.BETTER_AUTH_URL,
-    trustedOrigins: [env.BETTER_AUTH_URL],
+    baseURL: baseUrl,
+    trustedOrigins,
     emailAndPassword: {
       enabled: true,
       disableSignUp: true,

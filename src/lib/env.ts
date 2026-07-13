@@ -11,7 +11,7 @@ const envSchema = z.object({
   DIRECT_URL: z.string().min(1).optional(),
   TEST_DATABASE_URL: z.string().min(1).optional(),
   BETTER_AUTH_SECRET: z.string().min(32),
-  BETTER_AUTH_URL: z.string().url(),
+  BETTER_AUTH_URL: z.string().url().optional(),
   COMPANY_TIME_ZONE: z.string().min(1).default("America/Los_Angeles"),
   CRON_SECRET: optionalSecret,
   ENABLE_TEST_TOPUPS: z

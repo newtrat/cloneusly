@@ -4,7 +4,9 @@ import { defineConfig } from "prisma/config";
 
 // prisma.config.ts disables Prisma's automatic .env loading.
 loadEnv({ path: ".env" });
-loadEnv({ path: ".env.local", override: true });
+// Explicit shell or CI environment variables must win over local development
+// settings so migrations can target preview and production databases safely.
+loadEnv({ path: ".env.local" });
 
 export default defineConfig({
   schema: path.join("prisma", "schema.prisma"),
