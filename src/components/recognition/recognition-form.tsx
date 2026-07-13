@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 
 import { sendRecognitionAction } from "@/app/(app)/feed/actions";
 import { RecipientPicker } from "@/components/recognition/recipient-picker";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type { UserSummary } from "@/lib/dal/current-user";
 
 type RecognitionFormProps = {
@@ -74,111 +80,109 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-border bg-white p-5">
-        <h2 className="text-lg font-semibold">Send recognition</h2>
+    <Card size="sm">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <CardHeader>
+          <CardTitle>
+            <h2>Send recognition</h2>
+          </CardTitle>
+        </CardHeader>
 
-        <RecipientPicker
-          selected={recipients}
-          onChange={setRecipients}
-          disabled={pending}
-        />
-
-        <div>
-          <label htmlFor="points" className="mb-1 block text-sm font-medium">
-            Points per recipient
-          </label>
-          <input
-            id="points"
-            type="number"
-            min={1}
-            required
-            value={pointsPerRecipient}
+        <CardContent className="space-y-5">
+          <RecipientPicker
+            selected={recipients}
+            onChange={setRecipients}
             disabled={pending}
-            onChange={(e) => setPointsPerRecipient(e.target.value)}
-            className="w-full max-w-xs rounded-md border border-border px-3 py-2"
           />
-          {totalCost !== null ? (
-            <p className="mt-1 text-sm text-muted-foreground">
-              Total cost: {totalCost} giving points
+
+          <div className="max-w-xs space-y-1.5">
+            <Label htmlFor="points">Points per recipient</Label>
+            <Input
+              id="points"
+              type="number"
+              min={1}
+              required
+              value={pointsPerRecipient}
+              disabled={pending}
+              aria-invalid={Boolean(fieldErrors.pointsPerRecipient)}
+              onChange={(e) => setPointsPerRecipient(e.target.value)}
+            />
+            <p className="text-muted-foreground text-sm">
+              Total cost:{" "}
+              {totalCost === null
+                ? "add a recipient to calculate"
+                : `${totalCost} giving points`}
             </p>
+            {fieldErrors.pointsPerRecipient?.map((msg) => (
+              <p key={msg} className="text-destructive text-sm">
+                {msg}
+              </p>
+            ))}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="text">Message</Label>
+            <Textarea
+              id="text"
+              rows={3}
+              value={text}
+              disabled={pending}
+              aria-invalid={Boolean(fieldErrors.text)}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Thank you for…"
+            />
+            {fieldErrors.text?.map((msg) => (
+              <p key={msg} className="text-destructive text-sm">
+                {msg}
+              </p>
+            ))}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="gifUrl">GIF URL (optional)</Label>
+            <Input
+              id="gifUrl"
+              type="url"
+              value={gifUrl}
+              disabled={pending}
+              aria-invalid={Boolean(fieldErrors.gifUrl)}
+              onChange={(e) => setGifUrl(e.target.value)}
+              placeholder="https://media.giphy.com/..."
+            />
+            {fieldErrors.gifUrl?.map((msg) => (
+              <p key={msg} className="text-destructive text-sm">
+                {msg}
+              </p>
+            ))}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="hashtags">Hashtags</Label>
+            <Input
+              id="hashtags"
+              type="text"
+              value={hashtagsInput}
+              disabled={pending}
+              onChange={(e) => setHashtagsInput(e.target.value)}
+              placeholder="#teamwork #kudos"
+            />
+          </div>
+
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           ) : null}
-          {fieldErrors.pointsPerRecipient?.map((msg) => (
-            <p key={msg} className="text-sm text-destructive">
-              {msg}
-            </p>
-          ))}
-        </div>
 
-        <div>
-          <label htmlFor="text" className="mb-1 block text-sm font-medium">
-            Message
-          </label>
-          <textarea
-            id="text"
-            rows={3}
-            value={text}
-            disabled={pending}
-            onChange={(e) => setText(e.target.value)}
-            className="w-full rounded-md border border-border px-3 py-2"
-            placeholder="Thank you for…"
-          />
-          {fieldErrors.text?.map((msg) => (
-            <p key={msg} className="text-sm text-destructive">
-              {msg}
-            </p>
-          ))}
-        </div>
-
-        <div>
-          <label htmlFor="gifUrl" className="mb-1 block text-sm font-medium">
-            GIF URL (optional)
-          </label>
-          <input
-            id="gifUrl"
-            type="url"
-            value={gifUrl}
-            disabled={pending}
-            onChange={(e) => setGifUrl(e.target.value)}
-            placeholder="https://media.giphy.com/..."
-            className="w-full rounded-md border border-border px-3 py-2"
-          />
-          {fieldErrors.gifUrl?.map((msg) => (
-            <p key={msg} className="text-sm text-destructive">
-              {msg}
-            </p>
-          ))}
-        </div>
-
-        <div>
-          <label htmlFor="hashtags" className="mb-1 block text-sm font-medium">
-            Hashtags
-          </label>
-          <input
-            id="hashtags"
-            type="text"
-            value={hashtagsInput}
-            disabled={pending}
-            onChange={(e) => setHashtagsInput(e.target.value)}
-            placeholder="#teamwork #kudos"
-            className="w-full rounded-md border border-border px-3 py-2"
-          />
-        </div>
-
-        {error ? (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
-
-        <button
-          type="submit"
-          disabled={pending || recipients.length === 0}
-          className="rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
-        >
-          {pending ? "Sending…" : "Send recognition"}
-        </button>
+          <Button
+            type="submit"
+            disabled={pending || recipients.length === 0}
+            className="w-full sm:w-auto"
+          >
+            {pending ? "Sending…" : "Send recognition"}
+          </Button>
+        </CardContent>
       </form>
-    </div>
+    </Card>
   );
 }

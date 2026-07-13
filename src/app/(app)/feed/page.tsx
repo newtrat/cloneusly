@@ -4,6 +4,7 @@ import { FeedEmpty, FeedError, FeedList } from "@/components/feed/feed-list";
 import { FeedFilters } from "@/components/feed/feed-filters";
 import { LoadMoreFeed } from "@/components/feed/load-more-feed";
 import { RecognitionForm } from "@/components/recognition/recognition-form";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getFeed } from "@/lib/dal/recognition-feed";
 import { prisma } from "@/lib/prisma";
 
@@ -41,7 +42,13 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
 
       <RecognitionForm />
 
-      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading filters…</p>}>
+      <Suspense
+        fallback={
+          <div role="status" aria-label="Loading filters">
+            <Skeleton className="h-24 w-full" />
+          </div>
+        }
+      >
         <FeedFilters
           initialHashtag={hashtag ?? ""}
           initialUserId={userId ?? ""}

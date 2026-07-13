@@ -1,15 +1,32 @@
 "use client";
 
-import { signOut } from "@/lib/auth/client";
+import { RiLogoutBoxRLine } from "@remixicon/react";
 
-export function SignOutButton() {
+import { signOut } from "@/lib/auth/client";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+type SignOutButtonProps = {
+  className?: string;
+};
+
+export function SignOutButton({ className }: SignOutButtonProps) {
   return (
-    <button
+    <Button
       type="button"
-      onClick={() => signOut({ fetchOptions: { onSuccess: () => window.location.assign("/login") } })}
-      className="hover:text-primary"
+      variant="ghost"
+      size="sm"
+      onClick={() =>
+        signOut({
+          fetchOptions: {
+            onSuccess: () => window.location.assign("/login"),
+          },
+        })
+      }
+      className={cn("justify-start", className)}
     >
+      <RiLogoutBoxRLine data-icon="inline-start" aria-hidden="true" />
       Sign out
-    </button>
+    </Button>
   );
 }
