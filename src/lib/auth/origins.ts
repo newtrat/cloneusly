@@ -14,6 +14,12 @@ function previewDeploymentOrigin(
     return undefined;
   }
 
+  if (!vercelUrl.endsWith("newtrats-projects.vercel.app")) {
+    throw new Error(
+      "VERCEL_URL must use the *.newtrats-projects.vercel.app preview domain.",
+    );
+  }
+
   return new URL(`https://${vercelUrl}`).origin;
 }
 

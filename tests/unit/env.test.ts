@@ -38,12 +38,13 @@ describe("env", () => {
     expect(getEnv().CRON_SECRET).toBeUndefined();
   });
 
-  it("allows BETTER_AUTH_URL to be omitted for Vercel previews", () => {
-    resetEnvCache();
-    process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/db";
-    process.env.BETTER_AUTH_SECRET = "x".repeat(32);
-    delete process.env.BETTER_AUTH_URL;
+it("allows BETTER_AUTH_URL to be omitted for Vercel previews", () => {
+  resetEnvCache();
+  process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/db";
+  process.env.BETTER_AUTH_SECRET = "x".repeat(32);
+  process.env.VERCEL_ENV = "preview";
+  process.env.VERCEL_URL = "cloneusly-abc123-newtrats-projects.vercel.app";
+  delete process.env.BETTER_AUTH_URL;
 
-    expect(getEnv().BETTER_AUTH_URL).toBeUndefined();
-  });
+  expect(getEnv().BETTER_AUTH_URL).toBeUndefined();
 });

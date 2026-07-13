@@ -5,7 +5,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 
 import { getEnv } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
-import { resolveAuthOrigins } from "./origins";
+import { resolveAuthOrigins } from "@/lib/auth/origins";
 
 function createAuth() {
   const env = getEnv();
