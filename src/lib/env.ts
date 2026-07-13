@@ -29,6 +29,8 @@ const envSchema = z.object({
         .filter(Boolean),
     ),
   SEED_USER_PASSWORD: z.string().min(8).optional(),
+  SLACK_SIGNING_SECRET: optionalSecret,
+  SLACK_BOT_TOKEN: optionalSecret,
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
