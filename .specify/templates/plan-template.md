@@ -40,7 +40,16 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- **Readable by default**: Identify affected public interfaces, non-obvious decisions,
+  and documentation needed for a collaborator to understand the change.
+- **Small, collaborative change**: Define an independently reviewable user outcome and
+  identify compatibility impacts to shared interfaces, data, or configuration.
+- **Deployable without drama**: Specify clean-checkout setup, build, run, configuration,
+  and rollback implications; list documentation to update.
+- **Verification**: Define proportionate automated and/or manual checks for each changed
+  behavior, including a regression check for bug fixes.
+- **Simplest working design**: Justify every new dependency, service, abstraction, or
+  infrastructure component and record a simpler alternative when one is rejected.
 
 ## Project Structure
 

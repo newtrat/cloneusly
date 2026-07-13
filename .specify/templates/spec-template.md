@@ -98,6 +98,21 @@
 - **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
 - **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
 
+### Collaboration & Delivery Requirements *(mandatory)*
+
+<!--
+  ACTION REQUIRED: State the project requirements needed for a collaborator to
+  understand, verify, and deploy this feature. Use "N/A — rationale" only when a
+  topic genuinely does not apply.
+-->
+
+- **Clarity**: [Public interfaces, non-obvious decisions, or setup guidance that MUST
+  be documented]
+- **Verification**: [Automated and/or manual checks that demonstrate the feature works]
+- **Deployment**: [Build, runtime configuration, rollout, and rollback effects]
+- **Complexity**: [New dependencies, abstractions, or infrastructure and their
+  justification; otherwise "N/A — no new complexity"]
+
 ### Key Entities *(include if feature involves data)*
 
 - **[Entity 1]**: [What it represents, key attributes without implementation]
