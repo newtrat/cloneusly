@@ -3,8 +3,8 @@ import { config as loadEnv } from "dotenv";
 import { defineConfig } from "prisma/config";
 
 // prisma.config.ts disables Prisma's automatic .env loading.
+loadEnv({ path: ".env.local" });
 loadEnv({ path: ".env" });
-loadEnv({ path: ".env.local", override: true });
 
 export default defineConfig({
   schema: path.join("prisma", "schema.prisma"),

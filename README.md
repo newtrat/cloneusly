@@ -100,10 +100,10 @@ openssl rand -base64 32
 Copy the command output into `BETTER_AUTH_SECRET`. Do not commit `.env` /
 `.env.local` or reuse the development secret in preview or production.
 
-Prisma CLI loads `DATABASE_URL` and `DIRECT_URL` from `.env`, then overrides
-with `.env.local` when present (via `prisma.config.ts`). Next.js also reads
-those files for `npm run dev`. For the seed script outside Next.js, either keep
-`SEED_USER_PASSWORD` in `.env` / `.env.local`, or export it in your shell:
+Prisma CLI loads `DATABASE_URL` and `DIRECT_URL` from `.env` and `.env.local`;
+explicit shell or CI values take precedence. Next.js also reads those files for
+`npm run dev`. The standalone seed script needs its variables exported from
+`.env.local` first:
 
 ```bash
 set -a
@@ -172,6 +172,21 @@ npm run test:integration   # requires TEST_DATABASE_URL
 npm run build
 npm run test:e2e           # optional: set E2E_USER_EMAIL and E2E_USER_PASSWORD
 ```
+
+## Vercel preview environments
+
+Preview deployments use a separate database and Better Auth secret from
+production. Configure these variables with the **Preview** target in Vercel:
+
+- `DATABASE_URL` and `DIRECT_URL`: direct connection strings for the preview
+  database, never the production database.
+- `BETTER_AUTH_SECRET`: a dedicated preview secret.
+- `COMPANY_TIME_ZONE`: the company time zone, such as `America/Los_Angeles`.
+
+`BETTER_AUTH_URL` is intentionally not required in Vercel previews. The app
+uses Vercel's per-deployment `VERCEL_URL` and trusts only this team's
+`*.newtrats-projects.vercel.app` preview domains. Production still requires an
+explicit `BETTER_AUTH_URL`.
 
 ## Architecture
 
