@@ -14,6 +14,7 @@ const envSchema = z.object({
   BETTER_AUTH_URL: z.string().url(),
   COMPANY_TIME_ZONE: z.string().min(1).default("America/Los_Angeles"),
   CRON_SECRET: optionalSecret,
+  GIPHY_API_KEY: optionalSecret,
   ENABLE_TEST_TOPUPS: z
     .enum(["true", "false"])
     .default("false")

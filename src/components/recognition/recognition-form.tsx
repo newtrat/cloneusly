@@ -4,8 +4,11 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { sendRecognitionAction } from "@/app/(app)/feed/actions";
+import { GifPicker } from "@/components/recognition/gif-picker";
+import { GifPreview } from "@/components/recognition/gif-preview";
 import { RecipientPicker } from "@/components/recognition/recipient-picker";
 import type { UserSummary } from "@/lib/dal/current-user";
+import { normalizeGifHost } from "@/lib/gif/curated";
 
 type RecognitionFormProps = {
   onSuccess?: () => void;
@@ -13,6 +16,21 @@ type RecognitionFormProps = {
 
 function createRequestId(): string {
   return crypto.randomUUID();
+}
+
+function extractGifUrlFromDrop(dataTransfer: DataTransfer): string | null {
+  const uriList = dataTransfer.getData("text/uri-list");
+  const plain = dataTransfer.getData("text/plain");
+  const html = dataTransfer.getData("text/html");
+
+  let candidate = (uriList || plain || "").trim();
+  if (!candidate && html) {
+    const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+    if (match) candidate = match[1].trim();
+  }
+  if (!candidate) return null;
+
+  return normalizeGifHost(candidate);
 }
 
 export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
@@ -25,6 +43,23 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [dropHint, setDropHint] = useState<string | null>(null);
+
+  function handleGifDrop(event: React.DragEvent) {
+    event.preventDefault();
+    setDragActive(false);
+    if (pending) return;
+    const url = extractGifUrlFromDrop(event.dataTransfer);
+    if (url) {
+      setGifUrl(url);
+      setDropHint(null);
+      setShowGifPicker(false);
+    } else {
+      setDropHint("Drop a GIF image or paste its URL below.");
+    }
+  }
 
   const points = Number(pointsPerRecipient);
   const totalCost = useMemo(() => {
@@ -71,6 +106,8 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
     setText("");
     setGifUrl("");
     setHashtagsInput("");
+    setShowGifPicker(false);
+    setDropHint(null);
   }
 
   return (
@@ -131,18 +168,75 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
         </div>
 
         <div>
-          <label htmlFor="gifUrl" className="mb-1 block text-sm font-medium">
-            GIF URL (optional)
-          </label>
+          <span className="mb-1 block text-sm font-medium">GIF (optional)</span>
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!pending) setDragActive(true);
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={handleGifDrop}
+            className={`rounded-md border border-dashed p-3 transition-colors ${
+              dragActive ? "border-primary bg-primary/5" : "border-border"
+            }`}
+          >
+            {gifUrl ? (
+              <div className="space-y-2">
+                <GifPreview gifUrl={gifUrl} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGifUrl("");
+                    setDropHint(null);
+                  }}
+                  disabled={pending}
+                  className="text-sm text-destructive underline"
+                >
+                  Remove GIF
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-start gap-2">
+                <p className="text-sm text-muted-foreground">
+                  Drag a GIF here, choose one, or paste a URL.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowGifPicker((open) => !open)}
+                  disabled={pending}
+                  aria-expanded={showGifPicker}
+                  className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
+                >
+                  {showGifPicker ? "Hide GIF picker" : "Choose a GIF"}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {showGifPicker && !gifUrl ? (
+            <GifPicker
+              onSelect={(url) => {
+                setGifUrl(url);
+                setShowGifPicker(false);
+                setDropHint(null);
+              }}
+              onClose={() => setShowGifPicker(false)}
+            />
+          ) : null}
+
           <input
-            id="gifUrl"
             type="url"
             value={gifUrl}
             disabled={pending}
             onChange={(e) => setGifUrl(e.target.value)}
             placeholder="https://media.giphy.com/..."
-            className="w-full rounded-md border border-border px-3 py-2"
+            aria-label="GIF URL"
+            className="mt-2 w-full rounded-md border border-border px-3 py-2"
           />
+
+          {dropHint ? (
+            <p className="text-sm text-muted-foreground">{dropHint}</p>
+          ) : null}
           {fieldErrors.gifUrl?.map((msg) => (
             <p key={msg} className="text-sm text-destructive">
               {msg}
