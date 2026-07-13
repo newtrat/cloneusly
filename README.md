@@ -108,6 +108,29 @@ After seeding with `SEED_USER_PASSWORD`:
 
 Initial points are created through labeled test-top-up journal entries, not silent balance edits.
 
+### Creating additional users
+
+Public signup is disabled. Provision new accounts with the `create-user` script,
+which creates the `User`, a credential `Account`, and a `PointAccount`, and (when
+`--points` is given) grants initial giving points through a labeled test-top-up
+journal entry rather than a silent balance edit.
+
+```bash
+set -a; source .env.local; set +a
+npm run create-user -- --email dave@cloneusly.local --name "Dave Member" --handle dave --points 100
+```
+
+Options:
+
+- `--email`, `--name`, `--handle` are required; email and handle are stored
+  lowercased and must be unique (case-insensitive).
+- `--password` sets the login password (min 8 chars). If omitted it falls back to
+  `CREATE_USER_PASSWORD`, then `SEED_USER_PASSWORD`.
+- `--role MEMBER|TESTER` (default `MEMBER`).
+- `--points <n>` grants initial giving points (default `0`).
+- `--inactive` provisions the account as `INACTIVE`.
+- `--help` prints full usage.
+
 ## Verification
 
 ```bash
