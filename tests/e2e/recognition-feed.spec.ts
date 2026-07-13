@@ -14,14 +14,18 @@ test.describe("recognition feed", () => {
   });
 
   test("shows company feed and filter controls", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: /company feed/i })).toBeVisible();
-    await expect(page.getByLabel("Hashtag")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /company feed/i }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Hashtag", { exact: true })).toBeVisible();
     await expect(page.getByLabel("User")).toBeVisible();
   });
 
   test("navigates to leaderboard", async ({ page }) => {
     await page.getByRole("link", { name: "Leaderboard" }).click();
     await expect(page).toHaveURL(/\/leaderboard/);
-    await expect(page.getByRole("heading", { name: /leaderboard/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /leaderboard/i }),
+    ).toBeVisible();
   });
 });

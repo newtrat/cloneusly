@@ -3,6 +3,9 @@
 import { useOptimistic, useState, useTransition } from "react";
 
 import { toggleReactionAction } from "@/app/(app)/feed/actions";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 
 type ReactionBarProps = {
   recognitionId: string;
@@ -61,9 +64,16 @@ export function ReactionBar({ recognitionId, reactions }: ReactionBarProps) {
       : Math.max(0, current.count - 1);
 
     startTransition(async () => {
-      setOptimisticReactions({ reactionType, active: nextActive, count: nextCount });
+      setOptimisticReactions({
+        reactionType,
+        active: nextActive,
+        count: nextCount,
+      });
       setError(null);
-      const result = await toggleReactionAction({ recognitionId, reactionType });
+      const result = await toggleReactionAction({
+        recognitionId,
+        reactionType,
+      });
       if (!result.ok) {
         setError(result.error.message);
       }
@@ -71,31 +81,34 @@ export function ReactionBar({ recognitionId, reactions }: ReactionBarProps) {
   }
 
   return (
-    <div className="mt-4 border-t border-border pt-3">
+    <div className="mt-5">
+      <Separator className="mb-3" />
       <div className="flex flex-wrap gap-2" role="group" aria-label="Reactions">
         {optimisticReactions.map((reaction) => (
-          <button
+          <Button
             key={reaction.reactionType}
             type="button"
+            variant={reaction.reactedByCurrentUser ? "secondary" : "outline"}
+            size="xs"
             disabled={isPending}
             aria-pressed={reaction.reactedByCurrentUser}
             aria-label={`${REACTION_LABELS[reaction.reactionType]} (${reaction.count})`}
             onClick={() => handleToggle(reaction.reactionType)}
-            className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm transition-colors ${
-              reaction.reactedByCurrentUser
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border hover:bg-muted"
-            }`}
+            className={
+              reaction.reactedByCurrentUser ? "text-primary" : undefined
+            }
           >
-            <span aria-hidden="true">{REACTION_EMOJI[reaction.reactionType]}</span>
+            <span aria-hidden="true">
+              {REACTION_EMOJI[reaction.reactionType]}
+            </span>
             <span>{reaction.count}</span>
-          </button>
+          </Button>
         ))}
       </div>
       {error ? (
-        <p role="alert" className="mt-2 text-sm text-destructive">
-          {error}
-        </p>
+        <Alert variant="destructive" className="mt-3">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
     </div>
   );

@@ -5,6 +5,8 @@ import { useState, useTransition } from "react";
 
 import { getFeedAction } from "@/app/(app)/feed/actions";
 import { FeedList } from "@/components/feed/feed-list";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import type { RecognitionCardView } from "@/lib/dal/recognition-feed";
 
 type LoadMoreFeedProps = {
@@ -51,19 +53,20 @@ export function LoadMoreFeed({ initialCursor, filters }: LoadMoreFeedProps) {
     <div className="mt-4 space-y-4">
       {extraItems.length > 0 ? <FeedList items={extraItems} /> : null}
       {error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
-      <button
+      <Button
         type="button"
+        variant="outline"
         onClick={() => void loadMore()}
         disabled={isPending}
-        className="w-full rounded-md border border-border bg-white px-4 py-2 text-sm hover:bg-muted disabled:opacity-50"
+        className="w-full"
         aria-busy={isPending}
       >
         {isPending ? "Loading…" : "Load more"}
-      </button>
+      </Button>
     </div>
   );
 }

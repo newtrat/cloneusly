@@ -4,6 +4,8 @@ import {
   LeaderboardFilters,
   LeaderboardList,
 } from "@/components/leaderboard/leaderboard-list";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getLeaderboard } from "@/lib/dal/leaderboard";
 
 type LeaderboardPageProps = {
@@ -31,27 +33,34 @@ export default async function LeaderboardPage({
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-semibold">Leaderboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-sm">
           Rolling recognition rankings by points received.
         </p>
       </header>
 
-      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading filters…</p>}>
+      <Suspense
+        fallback={
+          <div role="status" aria-label="Loading leaderboard filters">
+            <Skeleton className="h-32 w-full" />
+          </div>
+        }
+      >
         <LeaderboardFilters period={period} hashtag={hashtag ?? ""} />
       </Suspense>
 
       {result.ok ? (
         <>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-muted-foreground text-xs">
             Window: {new Date(result.data.windowStart).toLocaleString()} –{" "}
             {new Date(result.data.asOf).toLocaleString()}
           </p>
           <LeaderboardList data={result.data} />
         </>
       ) : (
-        <p role="alert" className="text-destructive">
-          {result.error.message}
-        </p>
+        <Alert variant="destructive">
+          <AlertTitle>Unable to load leaderboard</AlertTitle>
+          <AlertDescription>{result.error.message}</AlertDescription>
+        </Alert>
       )}
     </div>
   );

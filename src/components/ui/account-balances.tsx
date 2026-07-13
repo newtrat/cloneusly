@@ -1,3 +1,7 @@
+import { RiGiftLine, RiHandCoinLine } from "@remixicon/react";
+
+import { Card, CardContent } from "@/components/ui/card";
+
 type AccountBalancesProps = {
   givingBalance: number;
   receivedBalance: number;
@@ -8,18 +12,42 @@ export function AccountBalances({
   receivedBalance,
 }: AccountBalancesProps) {
   return (
-    <div className="flex flex-wrap gap-4 rounded-md bg-muted px-4 py-3 text-sm">
-      <div>
-        <span className="text-muted-foreground">Giving points</span>
-        <p className="text-lg font-semibold">{givingBalance.toLocaleString()}</p>
-      </div>
-      <div>
-        <span className="text-muted-foreground">Received points</span>
-        <p className="text-lg font-semibold">
-          {receivedBalance.toLocaleString()}
-        </p>
-      </div>
-    </div>
+    <Card size="sm" className="w-full py-0 shadow-none">
+      <CardContent className="grid grid-cols-2 divide-x px-0">
+        <div className="flex min-w-0 items-center gap-3 px-4 py-4 sm:px-5">
+          <div className="bg-muted hidden size-9 shrink-0 items-center justify-center sm:flex">
+            <RiGiftLine
+              className="text-muted-foreground size-4"
+              aria-hidden="true"
+            />
+          </div>
+          <div className="min-w-0">
+            <span className="text-muted-foreground block truncate text-xs font-medium tracking-wide uppercase">
+              Giving points
+            </span>
+            <p className="truncate text-xl font-semibold tabular-nums">
+              {givingBalance.toLocaleString()}
+            </p>
+          </div>
+        </div>
+        <div className="flex min-w-0 items-center gap-3 px-4 py-4 sm:px-5">
+          <div className="bg-muted hidden size-9 shrink-0 items-center justify-center sm:flex">
+            <RiHandCoinLine
+              className="text-muted-foreground size-4"
+              aria-hidden="true"
+            />
+          </div>
+          <div className="min-w-0">
+            <span className="text-muted-foreground block truncate text-xs font-medium tracking-wide uppercase">
+              Received points
+            </span>
+            <p className="truncate text-xl font-semibold tabular-nums">
+              {receivedBalance.toLocaleString()}
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import type { LeaderboardView } from "@/lib/dal/leaderboard";
 
 type LeaderboardFiltersProps = {
@@ -11,7 +17,10 @@ type LeaderboardFiltersProps = {
   hashtag?: string;
 };
 
-export function LeaderboardFilters({ period, hashtag = "" }: LeaderboardFiltersProps) {
+export function LeaderboardFilters({
+  period,
+  hashtag = "",
+}: LeaderboardFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
@@ -39,51 +48,55 @@ export function LeaderboardFilters({ period, hashtag = "" }: LeaderboardFiltersP
   ];
 
   return (
-    <div className="space-y-4 rounded-lg border border-border bg-white p-4">
-      <div role="tablist" aria-label="Leaderboard period" className="flex flex-wrap gap-2">
-        {periods.map((p) => (
-          <button
-            key={p.value}
-            type="button"
-            role="tab"
-            aria-selected={period === p.value}
-            disabled={isPending}
-            onClick={() => setPeriod(p.value)}
-            className={`rounded-md px-4 py-2 text-sm ${
-              period === p.value
-                ? "bg-primary text-primary-foreground"
-                : "border border-border hover:bg-muted"
-            }`}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-
-      <form onSubmit={handleHashtagSubmit} className="flex flex-wrap items-end gap-2">
-        <div>
-          <label htmlFor="leaderboard-hashtag" className="mb-1 block text-sm font-medium">
-            Hashtag filter (optional)
-          </label>
-          <input
-            id="leaderboard-hashtag"
-            name="hashtag"
-            type="text"
-            defaultValue={hashtag}
-            disabled={isPending}
-            placeholder="teamwork"
-            className="rounded-md border border-border px-3 py-2 text-sm"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+    <Card size="sm">
+      <CardContent className="space-y-5">
+        <div
+          role="tablist"
+          aria-label="Leaderboard period"
+          className="bg-muted grid grid-cols-3 p-1 sm:inline-grid"
         >
-          Apply
-        </button>
-      </form>
-    </div>
+          {periods.map((p) => (
+            <Button
+              key={p.value}
+              type="button"
+              role="tab"
+              aria-selected={period === p.value}
+              disabled={isPending}
+              onClick={() => setPeriod(p.value)}
+              variant={period === p.value ? "secondary" : "ghost"}
+              size="sm"
+              className="px-2 sm:px-4"
+            >
+              {p.label}
+            </Button>
+          ))}
+        </div>
+
+        <Separator />
+
+        <form
+          onSubmit={handleHashtagSubmit}
+          className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-end"
+        >
+          <div className="flex-1">
+            <Label htmlFor="leaderboard-hashtag" className="mb-1.5">
+              Hashtag filter (optional)
+            </Label>
+            <Input
+              id="leaderboard-hashtag"
+              name="hashtag"
+              type="text"
+              defaultValue={hashtag}
+              disabled={isPending}
+              placeholder="teamwork"
+            />
+          </div>
+          <Button type="submit" disabled={isPending}>
+            Apply
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -94,35 +107,46 @@ type LeaderboardListProps = {
 export function LeaderboardList({ data }: LeaderboardListProps) {
   if (data.entries.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-border bg-white p-8 text-center text-muted-foreground" role="status">
-        No recognition in this window
-        {data.hashtag ? ` for #${data.hashtag}` : ""}.
-      </p>
+      <Card className="border border-dashed shadow-none" role="status">
+        <CardContent className="text-muted-foreground py-8 text-center">
+          No recognition in this window
+          {data.hashtag ? ` for #${data.hashtag}` : ""}.
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <ol className="divide-y divide-border rounded-lg border border-border bg-white" aria-label="Leaderboard rankings">
-      {data.entries.map((entry) => (
-        <li key={entry.user.id} className="flex items-center gap-4 px-4 py-3">
-          <span
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold"
-            aria-label={`Rank ${entry.rank}`}
-          >
-            {entry.rank}
-          </span>
-          <div className="min-w-0 flex-1">
-            <Link
-              href={`/people/${entry.user.id}`}
-              className="font-semibold hover:text-primary"
+    <ol
+      className="bg-card ring-foreground/5 overflow-hidden shadow-sm ring-1"
+      aria-label="Leaderboard rankings"
+    >
+      {data.entries.map((entry, index) => (
+        <li key={entry.user.id}>
+          <div className="flex items-center gap-3 px-4 py-4 sm:gap-4 sm:px-6">
+            <Badge
+              variant={entry.rank <= 3 ? "default" : "secondary"}
+              className="w-8 justify-center text-xs"
+              aria-label={`Rank ${entry.rank}`}
             >
-              {entry.user.name}
-            </Link>
-            <span className="text-muted-foreground"> @{entry.user.handle}</span>
+              {entry.rank}
+            </Badge>
+            <div className="min-w-0 flex-1">
+              <Link
+                href={`/people/${entry.user.id}`}
+                className="hover:text-primary block truncate font-semibold"
+              >
+                {entry.user.name}
+              </Link>
+              <span className="text-muted-foreground block truncate text-sm">
+                @{entry.user.handle}
+              </span>
+            </div>
+            <span className="text-primary shrink-0 font-semibold">
+              {entry.pointsReceived} pts
+            </span>
           </div>
-          <span className="shrink-0 font-semibold text-primary">
-            {entry.pointsReceived} pts
-          </span>
+          {index < data.entries.length - 1 ? <Separator /> : null}
         </li>
       ))}
     </ol>
