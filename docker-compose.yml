@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: cloneusly-postgres
+    restart: unless-stopped
+    ports:
+      # Host 5433 avoids clashes with a local Homebrew Postgres on 5432.
+      - "127.0.0.1:5433:5432"
+    environment:
+      POSTGRES_USER: cloneusly
+      POSTGRES_PASSWORD: cloneusly
+      POSTGRES_DB: cloneusly_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloneusly -d cloneusly_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

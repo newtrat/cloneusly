@@ -14,7 +14,31 @@ Internal peer recognition and points app built with Next.js 15, Better Auth, Pri
 Use separate databases for development and integration tests. Never use a
 production database locally.
 
-If PostgreSQL was installed with Homebrew:
+### Option A: Docker Compose (recommended)
+
+Requires Docker Desktop (or another Docker engine) with Compose.
+
+```bash
+docker compose up -d
+docker compose ps
+```
+
+The compose file starts PostgreSQL 18, creates `cloneusly_dev` and
+`cloneusly_test`, and persists data in a `postgres_data` volume. Default
+credentials are user `cloneusly` / password `cloneusly`. The database is
+published on host port `5433` (not `5432`) so it does not clash with a
+Homebrew Postgres already listening on `5432`.
+
+Stop the database when you are done:
+
+```bash
+docker compose down
+```
+
+Use `docker compose down -v` only if you also want to delete the local data
+volume.
+
+### Option B: Homebrew
 
 ```bash
 brew services start postgresql@14
@@ -41,7 +65,18 @@ npm install
 cp .env.example .env.local
 ```
 
-Configure `.env.local`:
+Configure `.env.local`. If you started the database with Docker Compose:
+
+```dotenv
+DATABASE_URL="postgresql://cloneusly:cloneusly@localhost:5433/cloneusly_dev?schema=public"
+DIRECT_URL="postgresql://cloneusly:cloneusly@localhost:5433/cloneusly_dev?schema=public"
+TEST_DATABASE_URL="postgresql://cloneusly:cloneusly@localhost:5433/cloneusly_test?schema=public"
+BETTER_AUTH_SECRET=<generated secret>
+BETTER_AUTH_URL=http://localhost:3000
+SEED_USER_PASSWORD=<development-only password>
+```
+
+If you use Homebrew PostgreSQL instead:
 
 ```dotenv
 DATABASE_URL="postgresql://YOUR_MACOS_USERNAME@localhost:5432/cloneusly_dev?schema=public"
@@ -62,22 +97,19 @@ Generate a unique Better Auth secret for each environment:
 openssl rand -base64 32
 ```
 
-Copy the command output into `BETTER_AUTH_SECRET`. Do not commit `.env.local`
-or reuse the development secret in preview or production.
+Copy the command output into `BETTER_AUTH_SECRET`. Do not commit `.env` /
+`.env.local` or reuse the development secret in preview or production.
 
-Before running database scripts, export the variables from `.env.local` into the
-current shell:
+Prisma CLI loads `DATABASE_URL` and `DIRECT_URL` from `.env`, then overrides
+with `.env.local` when present (via `prisma.config.ts`). Next.js also reads
+those files for `npm run dev`. For the seed script outside Next.js, either keep
+`SEED_USER_PASSWORD` in `.env` / `.env.local`, or export it in your shell:
 
 ```bash
 set -a
 source .env.local
 set +a
 ```
-
-`set -a` temporarily auto-exports variables created while sourcing the file, so
-`npm` and Prisma can access `DATABASE_URL`, `DIRECT_URL`, and
-`SEED_USER_PASSWORD`. `set +a` turns auto-export back off. Next.js loads
-`.env.local` for `npm run dev`, but standalone Prisma and seed commands do not.
 
 Prepare the database:
 
@@ -107,6 +139,29 @@ After seeding with `SEED_USER_PASSWORD`:
 | tester@cloneusly.local | tester | TESTER | 100                   |
 
 Initial points are created through labeled test-top-up journal entries, not silent balance edits.
+
+### Creating additional users
+
+Public signup is disabled. Provision new accounts with the `create-user` script,
+which creates the `User`, a credential `Account`, and a `PointAccount`, and (when
+`--points` is given) grants initial giving points through a labeled test-top-up
+journal entry rather than a silent balance edit.
+
+```bash
+set -a; source .env.local; set +a
+npm run create-user -- --email dave@cloneusly.local --name "Dave Member" --handle dave --points 100
+```
+
+Options:
+
+- `--email`, `--name`, `--handle` are required; email and handle are stored
+  lowercased and must be unique (case-insensitive).
+- `--password` sets the login password (min 8 chars). If omitted it falls back to
+  `CREATE_USER_PASSWORD`, then `SEED_USER_PASSWORD`.
+- `--role MEMBER|TESTER` (default `MEMBER`).
+- `--points <n>` grants initial giving points (default `0`).
+- `--inactive` provisions the account as `INACTIVE`.
+- `--help` prints full usage.
 
 ## Verification
 
