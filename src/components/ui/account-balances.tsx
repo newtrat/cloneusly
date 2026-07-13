@@ -22,7 +22,7 @@ export function AccountBalances({
             />
           </div>
           <div className="min-w-0">
-            <span className="text-muted-foreground block truncate text-xs font-medium tracking-wide uppercase">
+            <span className="text-muted-foreground block truncate text-xs font-medium tracking-wide">
               Giving points
             </span>
             <p className="truncate text-xl font-semibold tabular-nums">
@@ -38,7 +38,7 @@ export function AccountBalances({
             />
           </div>
           <div className="min-w-0">
-            <span className="text-muted-foreground block truncate text-xs font-medium tracking-wide uppercase">
+            <span className="text-muted-foreground block truncate text-xs font-medium tracking-wide">
               Received points
             </span>
             <p className="truncate text-xl font-semibold tabular-nums">

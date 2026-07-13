@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { searchUsersAction } from "@/app/(app)/feed/actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -36,14 +36,21 @@ export function RecipientPicker({
   const [results, setResults] = useState<UserSummary[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const latestSearchId = useRef(0);
 
   const search = useCallback(
     async (value: string) => {
+      const searchId = ++latestSearchId.current;
+
       if (value.trim().length < 1) {
+        setSearchError(null);
         setResults([]);
+        setOpen(false);
         return;
       }
       const response = await searchUsersAction(value.trim(), 10);
+      if (searchId !== latestSearchId.current) return;
+
       if (!response.ok) {
         setSearchError(response.error.message);
         setResults([]);
@@ -76,6 +83,9 @@ export function RecipientPicker({
     onChange(selected.filter((u) => u.id !== userId));
   }
 
+  const isPopoverOpen =
+    open && !disabled && (results.length > 0 || searchError !== null);
+
   return (
     <div className="space-y-2.5">
       <Label htmlFor="recipient-search">Recipients</Label>
@@ -97,10 +107,7 @@ export function RecipientPicker({
           </Badge>
         ))}
       </div>
-      <Popover
-        open={open && !disabled && (results.length > 0 || searchError !== null)}
-        onOpenChange={setOpen}
-      >
+      <Popover open={isPopoverOpen} onOpenChange={setOpen}>
         <PopoverTrigger
           nativeButton={false}
           render={
@@ -118,7 +125,7 @@ export function RecipientPicker({
               autoComplete="off"
               role="combobox"
               aria-autocomplete="list"
-              aria-expanded={open && results.length > 0}
+              aria-expanded={isPopoverOpen}
             />
           }
         />

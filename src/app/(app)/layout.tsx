@@ -26,7 +26,7 @@ export default async function AppLayout({
             <span className="bg-primary text-primary-foreground flex size-9 shrink-0 items-center justify-center">
               <RiSparkling2Fill className="size-4" aria-hidden="true" />
             </span>
-            <span className="font-heading truncate text-lg font-semibold tracking-wider uppercase">
+            <span className="font-heading truncate text-lg font-semibold tracking-wider">
               Cloneusly
             </span>
           </Link>

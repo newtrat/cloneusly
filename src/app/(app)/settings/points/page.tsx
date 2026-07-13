@@ -28,7 +28,7 @@ export default async function PointsSettingsPage() {
         <Card size="sm">
           <CardContent className="grid gap-4 min-[440px]:grid-cols-2">
             <div>
-              <p className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">
+              <p className="text-muted-foreground text-xs font-semibold tracking-widest">
                 Giving
               </p>
               <p className="mt-1 text-2xl font-semibold">
@@ -36,7 +36,7 @@ export default async function PointsSettingsPage() {
               </p>
             </div>
             <div className="border-border border-t pt-4 min-[440px]:border-t-0 min-[440px]:border-l min-[440px]:pt-0 min-[440px]:pl-4">
-              <p className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">
+              <p className="text-muted-foreground text-xs font-semibold tracking-widest">
                 Received
               </p>
               <p className="mt-1 text-2xl font-semibold">
