@@ -1,0 +1,326 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UserRole {
+  MEMBER
+  TESTER
+}
+
+enum PointBucket {
+  GIVING
+  RECEIVED
+}
+
+enum PointTransactionKind {
+  RECOGNITION
+  CONVERSION
+  MONTHLY_GRANT
+  TEST_TOP_UP
+}
+
+enum NotificationType {
+  RECOGNITION_RECEIVED
+  RECOGNITION_REACTION
+  RECOGNITION_COMMENT
+}
+
+enum ReactionType {
+  CLAP
+  HEART
+  CELEBRATE
+}
+
+model User {
+  id            String     @id @default(cuid())
+  email         String
+  emailVerified Boolean    @default(false)
+  name          String
+  image         String?
+  handle        String
+  status        UserStatus @default(ACTIVE)
+  role          UserRole   @default(MEMBER)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  sessions                    Session[]
+  accounts                    Account[]
+  pointAccount                PointAccount?
+  pointEntries                PointEntry[]
+  actorTransactions           PointTransaction[]       @relation("ActorTransactions")
+  sentRecognitions            Recognition[]            @relation("SentRecognitions")
+  recognitionRecipients       RecognitionRecipient[]
+  conversions                 Conversion[]
+  monthlyGrants               MonthlyGrant[]
+  testTopUpsAsActor           TestTopUp[]              @relation("TestTopUpActor")
+  testTopUpsAsBeneficiary     TestTopUp[]              @relation("TestTopUpBeneficiary")
+  comments                    Comment[]
+  reactions                   Reaction[]
+  notifications               Notification[]           @relation("NotificationRecipient")
+  causedNotifications         Notification[]           @relation("NotificationActor")
+
+  @@unique([email])
+  @@unique([handle])
+  @@index([status])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model PointAccount {
+  userId          String   @id
+  givingBalance   Int      @default(0)
+  receivedBalance Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@map("point_account")
+}
+
+model PointTransaction {
+  id               String               @id @default(cuid())
+  kind             PointTransactionKind
+  actorUserId      String?
+  idempotencyScope String
+  idempotencyKey   String
+  requestHash      String
+  createdAt        DateTime             @default(now())
+
+  actorUser   User?        @relation("ActorTransactions", fields: [actorUserId], references: [id], onDelete: Restrict)
+  entries     PointEntry[]
+  recognition Recognition?
+  conversion  Conversion?
+  monthlyGrant MonthlyGrant?
+  testTopUp   TestTopUp?
+
+  @@unique([idempotencyScope, kind, idempotencyKey])
+  @@index([actorUserId, createdAt])
+  @@map("point_transaction")
+}
+
+model PointEntry {
+  id            String       @id @default(cuid())
+  transactionId String
+  userId        String
+  bucket        PointBucket
+  delta         Int
+  createdAt     DateTime
+
+  transaction PointTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, bucket, createdAt, id])
+  @@index([transactionId])
+  @@map("point_entry")
+}
+
+model Recognition {
+  id                   String   @id @default(cuid())
+  transactionId        String   @unique
+  senderId             String
+  pointsPerRecipient   Int
+  text                 String?
+  gifUrl               String?
+  createdAt            DateTime @default(now())
+
+  transaction PointTransaction       @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  sender      User                   @relation("SentRecognitions", fields: [senderId], references: [id], onDelete: Restrict)
+  recipients  RecognitionRecipient[]
+  hashtags    RecognitionHashtag[]
+  comments    Comment[]
+  reactions   Reaction[]
+  notifications Notification[]
+
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@index([senderId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("recognition")
+}
+
+model RecognitionRecipient {
+  recognitionId String
+  recipientId   String
+  createdAt     DateTime @default(now())
+
+  recognition Recognition @relation(fields: [recognitionId], references: [id], onDelete: Restrict)
+  recipient   User        @relation(fields: [recipientId], references: [id], onDelete: Restrict)
+
+  @@id([recognitionId, recipientId])
+  @@index([recipientId, createdAt(sort: Desc), recognitionId])
+  @@index([recognitionId])
+  @@map("recognition_recipient")
+}
+
+model Hashtag {
+  id             String   @id @default(cuid())
+  normalizedName String   @unique
+  displayName    String
+  createdAt      DateTime @default(now())
+
+  recognitions RecognitionHashtag[]
+
+  @@map("hashtag")
+}
+
+model RecognitionHashtag {
+  recognitionId String
+  hashtagId     String
+
+  recognition Recognition @relation(fields: [recognitionId], references: [id], onDelete: Restrict)
+  hashtag     Hashtag     @relation(fields: [hashtagId], references: [id], onDelete: Restrict)
+
+  @@id([recognitionId, hashtagId])
+  @@index([hashtagId, recognitionId])
+  @@map("recognition_hashtag")
+}
+
+model Conversion {
+  id            String   @id @default(cuid())
+  transactionId String   @unique
+  userId        String
+  amount        Int
+  createdAt     DateTime @default(now())
+
+  transaction PointTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@map("conversion")
+}
+
+model MonthlyGrant {
+  id            String   @id @default(cuid())
+  transactionId String   @unique
+  userId        String
+  grantMonth    DateTime @db.Date
+  amount        Int
+  createdAt     DateTime @default(now())
+
+  transaction PointTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, grantMonth])
+  @@index([grantMonth])
+  @@map("monthly_grant")
+}
+
+model TestTopUp {
+  id                String   @id @default(cuid())
+  transactionId     String   @unique
+  actorUserId       String
+  beneficiaryUserId String
+  amount            Int
+  createdAt         DateTime @default(now())
+
+  transaction   PointTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  actorUser     User             @relation("TestTopUpActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  beneficiaryUser User           @relation("TestTopUpBeneficiary", fields: [beneficiaryUserId], references: [id], onDelete: Restrict)
+
+  @@index([beneficiaryUserId, createdAt])
+  @@map("test_top_up")
+}
+
+model Comment {
+  id            String   @id @default(cuid())
+  recognitionId String
+  authorId      String
+  body          String
+  createdAt     DateTime @default(now())
+
+  recognition Recognition @relation(fields: [recognitionId], references: [id], onDelete: Restrict)
+  author      User        @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([recognitionId, createdAt, id])
+  @@map("comment")
+}
+
+model Reaction {
+  id            String       @id @default(cuid())
+  recognitionId String
+  userId        String
+  reactionType  ReactionType
+  createdAt     DateTime     @default(now())
+
+  recognition Recognition @relation(fields: [recognitionId], references: [id], onDelete: Restrict)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([recognitionId, userId, reactionType])
+  @@index([recognitionId])
+  @@map("reaction")
+}
+
+model Notification {
+  id            String           @id @default(cuid())
+  userId        String
+  type          NotificationType
+  recognitionId String
+  actorUserId   String
+  eventKey      String
+  createdAt     DateTime         @default(now())
+  readAt        DateTime?
+
+  user        User        @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Restrict)
+  actorUser   User        @relation("NotificationActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  recognition Recognition @relation(fields: [recognitionId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, type, eventKey])
+  @@index([userId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("notification")
+}

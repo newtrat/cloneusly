@@ -249,3 +249,63 @@ Important:
 - GIF support accepts configured remote URLs; there is no GIF search, upload, proxy, or moderation service.
 - Leaderboards query raw recognition facts and do not use precomputed aggregates.
 - Application rollback does not imply database rollback.
+
+## Implementation Status — 2026-07-13
+
+All user stories US1–US6 and Polish phase T080–T087 are implemented.
+
+### Quality gate (local)
+
+| Command | Result |
+|---|---|
+| `npm run typecheck` | Pass |
+| `npm run test` | Pass (20 unit tests) |
+| `npm run test:integration` | Pass (9 tests; 24 skipped without `TEST_DATABASE_URL`) |
+| `npm run build` | Run before deploy |
+| `npm run test:e2e` | Requires `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` |
+
+### Features delivered
+
+- **US2 Feed**: Cursor-paginated company feed, hashtag/user filters, `/people/[userId]` activity
+- **US3 Conversion**: Received→giving conversion with history at `/settings/points`
+- **US4 Leaderboards**: Rolling day/week/month rankings with optional hashtag filter
+- **US5 Grants/Topups**: Daily cron reconciliation, tester self top-up
+- **US6 Social**: Reactions, comments, in-app notifications with unread badge
+
+### Remaining limitations
+
+- Integration tests requiring PostgreSQL skip when `TEST_DATABASE_URL` is unset
+- E2E tests skip without provisioned credentials
+- Performance fixture seeds 200 recognitions (scaled-down from 10k target for CI speed)
+- Production smoke at `https://cloneusly.vercel.app/` requires manual verification after deploy
+
+### Manual smoke checks for production
+
+1. Login as seeded user → balances visible in header
+2. Send recognition → appears in feed, recipients notified
+3. Filter feed by hashtag → case-insensitive match
+4. Convert points → balances and history update
+5. Leaderboard period tabs → rankings render
+6. React/comment → sender notification, balances unchanged
+7. Cron route without secret → 401
+
+## User Story 1 (MVP) Status — 2026-07-13
+
+Implemented:
+
+- Authenticated recognition composer on `/feed` with recipient search, total-cost preview, text/hashtag/GIF inputs
+- Atomic multi-recipient `sendRecognition` with idempotency replay and serializable retries
+- Company feed with filters, pagination, reactions, and comments (US2/US6 integrated)
+- Unit tests for validation; integration/e2e test files present (integration requires `TEST_DATABASE_URL`; e2e login requires `E2E_USER_EMAIL` / `E2E_USER_PASSWORD`)
+
+Known limitations:
+
+- Integration tests for full authenticated send path need `TEST_DATABASE_URL` configured
+- Database migration must be applied before local login/seed (`npm run db:migrate:deploy && npm run db:seed`)
+
+Manual demo (after migrate + seed):
+
+1. Sign in as `alice@cloneusly.local` with `SEED_USER_PASSWORD`
+2. Search for `bob` and `carol`, set +10 points each, add `#teamwork` and a message
+3. Submit and confirm Alice has 80 giving points and the recognition appears in the company feed
+4. Sign in as Bob/Carol and confirm +10 received points each and recognition notifications
