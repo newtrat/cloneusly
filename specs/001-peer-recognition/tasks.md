@@ -18,7 +18,7 @@
 
 **Purpose**: Create the single TypeScript/Next.js project, quality tooling, environment contract, and Vercel configuration described by the plan.
 
-- [X] T001 Scaffold the Next.js App Router project with TypeScript, Tailwind CSS, Node.js 22 metadata, and the planned `src/` layout in package.json, package-lock.json, tsconfig.json, next-env.d.ts, src/app/layout.tsx, src/app/page.tsx, and src/app/globals.css
+- [X] T001 Scaffold the Next.js App Router project with TypeScript, Tailwind CSS, Node.js 24 metadata, and the planned `src/` layout in package.json, package-lock.json, tsconfig.json, next-env.d.ts, src/app/layout.tsx, src/app/page.tsx, and src/app/globals.css
 - [X] T002 Install current stable Prisma ORM, Better Auth Prisma adapter, Zod, and required runtime packages and add dev/build/typecheck/database/test scripts in package.json and package-lock.json
 - [X] T003 [P] Configure linting and formatting with repository scripts in eslint.config.mjs, prettier.config.mjs, and .prettierignore
 - [X] T004 [P] Configure unit, integration, and browser test projects in vitest.config.ts, playwright.config.ts, and tests/fixtures/README.md

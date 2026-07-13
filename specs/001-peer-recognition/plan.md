@@ -12,7 +12,7 @@ The design keeps the hackathon architecture intentionally small: Server Componen
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.x on Node.js 22 LTS
+**Language/Version**: TypeScript 5.x on Node.js 24 LTS
 
 **Primary Dependencies**: Next.js App Router, React, Prisma ORM, Prisma Postgres, Better Auth with Prisma adapter, Zod, and Tailwind CSS; use current stable releases when scaffolding
 

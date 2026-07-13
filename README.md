@@ -4,7 +4,7 @@ Internal peer recognition and points app built with Next.js 15, Better Auth, Pri
 
 ## Prerequisites
 
-- Node.js 22 LTS (`asdf install nodejs 22.18.0`)
+- Node.js 24 LTS (`asdf install nodejs 24.18.0`)
 - npm
 - A non-production PostgreSQL database (Prisma Postgres recommended)
 - A separate test database for integration tests
@@ -36,7 +36,7 @@ whoami
 ## Quick start
 
 ```bash
-asdf shell nodejs 22.18.0
+asdf shell nodejs 24.18.0
 npm install
 cp .env.example .env.local
 ```

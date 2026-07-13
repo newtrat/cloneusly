@@ -4,7 +4,7 @@ This guide defines the expected clean-checkout setup, verification, and deployme
 
 ## Prerequisites
 
-- Node.js 22 LTS
+- Node.js 24 LTS
 - npm
 - A non-production Prisma Postgres database for local development
 - A separate Prisma Postgres database or branch for integration tests
