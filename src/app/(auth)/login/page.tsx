@@ -11,11 +11,21 @@ import {
 } from "@/components/ui/card";
 import { getSessionUser } from "@/lib/auth/require-user";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await getSessionUser();
   if (user?.status === "ACTIVE") {
     redirect("/feed");
   }
+
+  const params = await searchParams;
+  const firstAccessParam = params.firstAccess;
+  const firstAccessSuccess = Array.isArray(firstAccessParam)
+    ? firstAccessParam.includes("success")
+    : firstAccessParam === "success";
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
@@ -33,6 +43,13 @@ export default async function LoginPage() {
             <Alert variant="destructive">
               <AlertDescription>
                 This account is inactive. Contact an administrator.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          {firstAccessSuccess ? (
+            <Alert>
+              <AlertDescription>
+                Password set! You can sign in now.
               </AlertDescription>
             </Alert>
           ) : null}

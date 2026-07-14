@@ -74,9 +74,9 @@ export async function reconcileMonthlyGrants(): Promise<ReconcileMonthlyGrantsRe
   };
 }
 
-type GrantOutcome = "granted" | "already_granted";
+export type GrantOutcome = "granted" | "already_granted";
 
-async function grantUserMonthlyAllowance(
+export async function grantUserMonthlyAllowance(
   userId: string,
   grantMonth: Date,
 ): Promise<GrantOutcome> {

@@ -1,41 +1,48 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { setFirstPasswordAction } from "./actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signIn } from "@/lib/auth/client";
 
-export function LoginForm() {
+export function FirstAccessForm({
+  defaultEmail = "",
+}: {
+  defaultEmail?: string;
+}) {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(defaultEmail);
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    setPending(true);
     setError(null);
 
-    const result = await signIn.email({
-      email: email.trim(),
-      password,
-    });
-
-    setPending(false);
-
-    if (result.error) {
-      setError(result.error.message ?? "Unable to sign in.");
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
       return;
     }
 
-    router.push("/feed");
-    router.refresh();
+    setPending(true);
+    const result = await setFirstPasswordAction({
+      email: email.trim(),
+      password,
+    });
+    setPending(false);
+
+    if (!result.ok) {
+      setError(result.error.message);
+      return;
+    }
+
+    router.push("/login?firstAccess=success");
   }
 
   return (
@@ -52,14 +59,27 @@ export function LoginForm() {
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor="password">New password</Label>
         <Input
           id="password"
           type="password"
-          autoComplete="current-password"
+          autoComplete="new-password"
           required
+          minLength={8}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="confirmPassword">Confirm password</Label>
+        <Input
+          id="confirmPassword"
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
         />
       </div>
       {error ? (
@@ -68,14 +88,8 @@ export function LoginForm() {
         </Alert>
       ) : null}
       <Button type="submit" disabled={pending} className="w-full">
-        {pending ? "Signing in…" : "Sign in"}
+        {pending ? "Setting password…" : "Set password"}
       </Button>
-      <p className="text-center text-sm text-muted-foreground">
-        First time here?{" "}
-        <Link href="/first-access" className="underline underline-offset-4">
-          Set your password
-        </Link>
-      </p>
     </form>
   );
 }

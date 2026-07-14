@@ -1,6 +1,12 @@
 import "server-only";
 
 import type { AuthenticatedUser } from "@/lib/auth/require-user";
+import {
+  findUserByEmailAnyStatus,
+  provisionUserFromSlackProfile,
+  toAuthenticatedUser,
+  type SlackProfileLike,
+} from "@/lib/domain/users/provision-slack-user";
 import type { RecipientRef } from "@/lib/slack/parse-thanks";
 import { getSlackClient } from "@/lib/slack/client";
 import { prisma } from "@/lib/prisma";
@@ -84,34 +90,8 @@ async function findActiveUserByHandle(
   return user ? toAuthenticatedUser(user) : null;
 }
 
-async function findActiveUserByEmail(
-  email: string,
-): Promise<AuthenticatedUser | null> {
-  const user = await prisma.user.findFirst({
-    where: {
-      email: { equals: email, mode: "insensitive" },
-      status: "ACTIVE",
-    },
-  });
-  return user ? toAuthenticatedUser(user) : null;
-}
-
-type SlackUserLike = {
-  id?: string;
-  name?: string;
-  deleted?: boolean;
-  is_bot?: boolean;
-  profile?: {
-    email?: string;
-    display_name?: string;
-    display_name_normalized?: string;
-    real_name?: string;
-    real_name_normalized?: string;
-  };
-};
-
 async function mapSlackUserToCloneusly(
-  slackUser: SlackUserLike,
+  slackUser: SlackProfileLike,
   label: string,
 ): Promise<ResolveSlackUserResult> {
   const slackUserId = slackUser.id ?? label;
@@ -137,21 +117,25 @@ async function mapSlackUserToCloneusly(
     };
   }
 
-  const user = await findActiveUserByEmail(email);
-  if (!user) {
-    return {
-      ok: false,
-      label,
-      reason: `No active Cloneusly account for ${email} (${label}).`,
-    };
+  const existing = await findUserByEmailAnyStatus(email);
+  if (existing) {
+    if (existing.status !== "ACTIVE") {
+      return {
+        ok: false,
+        label,
+        reason: `No active Cloneusly account for ${email} (${label}).`,
+      };
+    }
+    return { ok: true, user: toAuthenticatedUser(existing), label };
   }
 
-  return { ok: true, user, label };
+  const created = await provisionUserFromSlackProfile(slackUser, email);
+  return { ok: true, user: created, label };
 }
 
 async function findSlackUserByName(
   handle: string,
-): Promise<SlackUserLike | null> {
+): Promise<SlackProfileLike | null> {
   const client = getSlackClient();
   const needle = handle.toLowerCase();
   let cursor: string | undefined;
@@ -186,24 +170,4 @@ async function findSlackUserByName(
   } while (cursor);
 
   return null;
-}
-
-function toAuthenticatedUser(user: {
-  id: string;
-  email: string;
-  name: string;
-  image: string | null;
-  handle: string;
-  status: "ACTIVE" | "INACTIVE";
-  role: "MEMBER" | "TESTER";
-}): AuthenticatedUser {
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    image: user.image,
-    handle: user.handle,
-    status: user.status,
-    role: user.role,
-  };
 }
