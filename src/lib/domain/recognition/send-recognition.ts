@@ -15,6 +15,7 @@ import { err, ok, type CommandResult } from "@/lib/domain/result";
 import { withSerializableRetry } from "@/lib/domain/transaction-retry";
 import { normalizeHashtags } from "@/lib/domain/recognition/normalize-hashtags";
 import { prisma } from "@/lib/prisma";
+import { notifyRecognitionRecipients } from "@/lib/slack/notify-recognition";
 import {
   computeTotalCost,
   hasDuplicateStrings,
@@ -277,6 +278,31 @@ export async function sendRecognitionForUser(
       recipientCount: data.recipientIds.length,
       totalCost,
     });
+
+    // Best-effort Slack DM fanout. `notifyRecognitionRecipients` swallows all
+    // errors internally, but we belt-and-suspend with an outer catch so any
+    // future regression can never surface a Slack failure to the caller.
+    try {
+      await notifyRecognitionRecipients({
+        senderName: sender.name,
+        pointsPerRecipient: data.pointsPerRecipient,
+        recognitionText: data.text ?? null,
+        recognitionId: result.recognition.id,
+        recipientIds: data.recipientIds,
+        correlationId,
+      });
+    } catch (slackError) {
+      logOperation("error", "Slack recognition fanout crashed", {
+        operation: "sendRecognition",
+        correlationId,
+        userId: sender.id,
+        recognitionId: result.recognition.id,
+        error:
+          slackError instanceof Error
+            ? slackError.message
+            : String(slackError),
+      });
+    }
 
     return ok(buildSuccess(result.recognition, result.givingBalance));
   } catch (error) {

@@ -207,6 +207,7 @@ Authenticated users can:
 5. **Receive monthly grants** — daily cron reconciliation; testers can self top-up in test mode (US5)
 6. **Celebrate socially** — reactions, comments, in-app notifications (US6)
 7. **Send thanks from Slack** — `/thanks` slash command and **Send Thanks** shortcut modal
+8. **Get notified in Slack** — recipients receive a private DM whenever they are awarded points, regardless of whether the recognition originated from the web app or from `/thanks` in Slack
 
 ## Slack integration
 
@@ -225,6 +226,24 @@ SLACK_BOT_TOKEN=xoxb-...
 Bot token scopes: `commands`, `users:read`, `users:read.email`, `chat:write`. Interactivity and the slash command request URLs must point at your deployed app (for example `https://cloneusly.vercel.app/api/slack/command` and `.../api/slack/interactive`). The bot must be in the channel for ephemeral confirmation after the message shortcut.
 
 Users are matched by Slack profile **email** to an active Cloneusly account. Rotate any Slack secrets that were shared outside a password manager.
+
+### Recognition DM notifications
+
+When a recognition is created — whether through the web UI or the `/thanks`
+slash command — every recipient is DMed by the bot with a summary of who
+recognized them, the points awarded, and the recognition message. The DM
+includes an "Open Cloneusly" link when `BETTER_AUTH_URL` is set. Behavior
+notes:
+
+- Requires the same `SLACK_BOT_TOKEN` and scopes as `/api/slack/*`. When
+  `SLACK_BOT_TOKEN` is unset the DM fanout is a silent no-op — recognition
+  still succeeds, in-app notifications still fire.
+- Recipients are matched to Slack users via `users.lookupByEmail`. Users whose
+  Cloneusly email is not in the workspace are logged and skipped, not treated
+  as errors.
+- All Slack failures (rate limits, network errors, missing users) are
+  swallowed and logged; a Slack outage will never fail a recognition or block
+  a user's response.
 
 ## Operations
 
