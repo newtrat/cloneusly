@@ -12,6 +12,8 @@ import {
   type RecognitionCardView,
 } from "@/lib/dal/recognition-feed";
 import { searchUsers } from "@/lib/dal/users";
+import { searchGifs } from "@/lib/gif/search";
+import type { GifResult } from "@/lib/gif/curated";
 import { requireActiveUser } from "@/lib/auth/require-user";
 import { addComment } from "@/lib/domain/recognition/add-comment";
 import { sendRecognition } from "@/lib/domain/recognition/send-recognition";
@@ -42,6 +44,16 @@ export async function searchUsersAction(
 
   const users = await searchUsers(authResult.data.id, query, limit);
   return { ok: true, data: users };
+}
+
+export async function searchGifsAction(
+  query: string,
+): Promise<CommandResult<GifResult[]>> {
+  const authResult = await requireActiveUser();
+  if (!authResult.ok) return authResult;
+
+  const gifs = await searchGifs(query);
+  return { ok: true, data: gifs };
 }
 
 export async function getCurrentAccountAction(): Promise<

@@ -220,7 +220,7 @@ explicit `BETTER_AUTH_URL`.
 
 Authenticated users can:
 
-1. **Recognize colleagues** — multi-recipient points, text, hashtags, allowlisted GIFs (US1)
+1. **Recognize colleagues** — multi-recipient points, text, hashtags, allowlisted GIFs via an in-app picker or drag-and-drop (US1)
 2. **Browse the feed** — cursor pagination, hashtag/user filters, colleague profiles (US2)
 3. **Convert points** — move received → giving one-to-one with immutable history (US3)
 4. **View leaderboards** — rolling 24h/7d/30d rankings, optional hashtag filter (US4)
@@ -252,5 +252,15 @@ Users are matched by Slack profile **email** to an active Cloneusly account. Rot
 - Set `ENABLE_TEST_TOPUPS=false` in production unless the demo requires tester controls
 - `CRON_SECRET` is required only for the monthly-grant cron route (User Story 5)
 - `SLACK_SIGNING_SECRET` and `SLACK_BOT_TOKEN` are required only for `/api/slack/*` routes
+
+### GIF picker
+
+The recognition composer lets users attach a GIF three ways: an in-app picker,
+dragging a GIF onto the composer, or pasting a URL. All selections are
+normalized and validated against `ALLOWED_GIF_HOSTS` on the server.
+
+Set `GIPHY_API_KEY` to enable live Giphy search in the picker. Without a key, the
+picker falls back to a curated set of GIFs served from the allowlisted host, so
+the feature works with no external credentials.
 
 See [specs/001-peer-recognition/quickstart.md](specs/001-peer-recognition/quickstart.md) for the full validation checklist.
