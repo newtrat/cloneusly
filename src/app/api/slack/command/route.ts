@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
+import { logOperation } from "@/lib/domain/logger";
 import { getEnv } from "@/lib/env";
 import {
   buildSlashIdempotencyKey,
@@ -65,6 +66,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const teamId = form.get("team_id") ?? "";
   const userId = form.get("user_id") ?? "";
   const channelId = form.get("channel_id") ?? "";
+  const responseUrl = form.get("response_url") ?? "";
   if (!userId) {
     return ephemeral("Could not determine who sent this command.");
   }
@@ -77,15 +79,32 @@ export async function POST(request: Request): Promise<NextResponse> {
     text,
   });
 
-  const result = await processThanks({
-    senderSlackId: userId,
-    parsed: parsed.data,
-    requestId,
+  after(async () => {
+    const result = await processThanks({
+      senderSlackId: userId,
+      parsed: parsed.data,
+      requestId,
+    });
+
+    if (!responseUrl) return;
+
+    try {
+      await fetch(responseUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          response_type: "ephemeral",
+          text: result.message,
+        }),
+      });
+    } catch (error) {
+      logOperation("warn", "Failed to deliver Slack response_url follow-up", {
+        operation: "slackCommandThanks",
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   });
 
-  if (!result.ok) {
-    return ephemeral(result.message);
-  }
-
-  return ephemeral(result.message);
+  return ephemeral("Sending your thanks…");
 }

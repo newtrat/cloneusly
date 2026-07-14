@@ -72,32 +72,6 @@ export async function resolveRecipientRefs(refs: RecipientRef[]): Promise<{
   return { resolved, failures };
 }
 
-/** @deprecated Use resolveSlackUserById */
-export async function resolveSlackUser(slackUserId: string) {
-  const result = await resolveSlackUserById(slackUserId);
-  if (result.ok) {
-    return { ok: true as const, user: result.user, slackUserId };
-  }
-  return { ok: false as const, slackUserId, reason: result.reason };
-}
-
-/** @deprecated Use resolveRecipientRefs */
-export async function resolveSlackUsers(slackUserIds: string[]) {
-  const { resolved, failures } = await resolveRecipientRefs(
-    slackUserIds.map((value) => ({ kind: "slack_id" as const, value })),
-  );
-  return {
-    resolved: resolved.map((r) => ({
-      slackUserId: r.label,
-      user: r.user,
-    })),
-    failures: failures.map((f) => ({
-      slackUserId: f.label,
-      reason: f.reason,
-    })),
-  };
-}
-
 async function findActiveUserByHandle(
   handle: string,
 ): Promise<AuthenticatedUser | null> {

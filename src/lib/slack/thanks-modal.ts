@@ -115,6 +115,39 @@ export function buildThanksSuccessModalView(message: string) {
   };
 }
 
+export function buildThanksProcessingModalView() {
+  return {
+    type: "modal" as const,
+    callback_id: "thanks_modal_processing",
+    title: { type: "plain_text" as const, text: "Send Thanks" },
+    close: { type: "plain_text" as const, text: "Close" },
+    blocks: [
+      {
+        type: "section",
+        text: { type: "mrkdwn" as const, text: "Sending your thanks…" },
+      },
+    ],
+  };
+}
+
+export function buildThanksErrorModalView(message: string) {
+  const text =
+    message.length > 2900 ? `${message.slice(0, 2900)}…` : message;
+
+  return {
+    type: "modal" as const,
+    callback_id: "thanks_modal_error",
+    title: { type: "plain_text" as const, text: "Couldn't send thanks" },
+    close: { type: "plain_text" as const, text: "Close" },
+    blocks: [
+      {
+        type: "section",
+        text: { type: "mrkdwn" as const, text },
+      },
+    ],
+  };
+}
+
 export type ThanksModalMetadata = {
   channelId?: string;
 };

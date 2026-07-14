@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import { getEnv } from "@/lib/env";
 import { getSlackClient } from "@/lib/slack/client";
@@ -7,7 +7,9 @@ import { processThanks } from "@/lib/slack/process-thanks";
 import {
   SHORTCUT_CALLBACK_ID,
   THANKS_MODAL_CALLBACK_ID,
+  buildThanksErrorModalView,
   buildThanksModalView,
+  buildThanksProcessingModalView,
   buildThanksSuccessModalView,
   channelIdFromShortcutPayload,
   initialRecipientsFromMessageAction,
@@ -140,38 +142,49 @@ export async function POST(request: Request): Promise<NextResponse> {
     const requestId = `slack-modal-${viewId}`.slice(0, 128);
     const metadata = parseThanksModalMetadata(payload.view.private_metadata);
 
-    const result = await processThanks({
-      senderSlackId,
-      parsed: parsed.data,
-      requestId,
+    after(async () => {
+      const client = getSlackClient();
+      const result = await processThanks({
+        senderSlackId,
+        parsed: parsed.data,
+        requestId,
+      });
+
+      try {
+        await client.views.update({
+          view_id: viewId,
+          view: result.ok
+            ? buildThanksSuccessModalView(result.message)
+            : buildThanksErrorModalView(result.message),
+        });
+      } catch (error) {
+        logOperation("warn", "Slack views.update follow-up failed", {
+          operation: "slackInteractiveThanks",
+          userId: senderSlackId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      if (!result.ok) return;
+
+      try {
+        await notifyThanksSuccess({
+          userId: senderSlackId,
+          text: result.message,
+          channelId: metadata.channelId,
+        });
+      } catch (error) {
+        logOperation("warn", "Slack success notification failed", {
+          operation: "slackInteractiveThanks",
+          userId: senderSlackId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     });
-
-    if (!result.ok) {
-      return NextResponse.json({
-        response_action: "errors",
-        errors: {
-          message_block: result.message.slice(0, 150),
-        },
-      });
-    }
-
-    try {
-      await notifyThanksSuccess({
-        userId: senderSlackId,
-        text: result.message,
-        channelId: metadata.channelId,
-      });
-    } catch (error) {
-      logOperation("warn", "Slack success notification failed", {
-        operation: "slackInteractiveThanks",
-        userId: senderSlackId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
 
     return NextResponse.json({
       response_action: "update",
-      view: buildThanksSuccessModalView(result.message),
+      view: buildThanksProcessingModalView(),
     });
   }
 
