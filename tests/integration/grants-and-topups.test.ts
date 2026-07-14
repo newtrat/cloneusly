@@ -8,6 +8,7 @@ import {
   grantUserMonthlyAllowance,
   reconcileMonthlyGrants,
 } from "@/lib/domain/points/reconcile-monthly-grants";
+import { sendRecognitionForUser } from "@/lib/domain/recognition/send-recognition";
 import {
   clearSessionUser,
   mockSessionUser,
@@ -163,6 +164,65 @@ describe.skipIf(!hasDatabase)("grants and top-ups integration", () => {
     expect(aliceAfterReset.givingBalance).toBe(150);
     expect(aliceAfterReset.convertedGivingBalance).toBe(50);
     expect(aliceAfterReset.receivedBalance).toBe(10);
+
+    await expectLedgerMatchesBalances(alice.id);
+  });
+
+  it("spends the monthly allowance before dipping into converted points", async () => {
+    const prisma = getTestPrisma();
+    const alice = await createActiveUser({
+      email: "dip-a@test.local",
+      handle: "dipa",
+      name: "Dip A",
+    });
+    const bob = await createActiveUser({
+      email: "dip-b@test.local",
+      handle: "dipb",
+      name: "Dip B",
+    });
+    const month1 = new Date("2026-01-01T00:00:00.000Z");
+
+    // Give Alice received points (from Bob) and let her convert 80 of them.
+    await grantUserMonthlyAllowance(bob.id, month1);
+    await createRecognition({
+      senderId: bob.id,
+      recipientIds: [alice.id],
+      pointsPerRecipient: 80,
+    });
+    await grantUserMonthlyAllowance(alice.id, month1);
+    mockSessionUser(toAuthenticatedUser(alice));
+    await convertReceivedPoints({ requestId: "dip-conv", amount: 80 });
+
+    // Alice now has giving 180 (100 allowance + 80 converted).
+    const aliceUser = toAuthenticatedUser(alice);
+
+    // Spend 30 — within the allowance, converted points untouched.
+    const r1 = await sendRecognitionForUser(aliceUser, {
+      requestId: "dip-send-1",
+      recipientIds: [bob.id],
+      pointsPerRecipient: 30,
+      text: "thanks",
+    });
+    expect(r1.ok).toBe(true);
+    let acct = await prisma.pointAccount.findUniqueOrThrow({
+      where: { userId: alice.id },
+    });
+    expect(acct.givingBalance).toBe(150);
+    expect(acct.convertedGivingBalance).toBe(80);
+
+    // Spend 120 — allowance left is 70, so this dips 50 into converted points.
+    const r2 = await sendRecognitionForUser(aliceUser, {
+      requestId: "dip-send-2",
+      recipientIds: [bob.id],
+      pointsPerRecipient: 120,
+      text: "big thanks",
+    });
+    expect(r2.ok).toBe(true);
+    acct = await prisma.pointAccount.findUniqueOrThrow({
+      where: { userId: alice.id },
+    });
+    expect(acct.givingBalance).toBe(30);
+    expect(acct.convertedGivingBalance).toBe(30);
 
     await expectLedgerMatchesBalances(alice.id);
   });
