@@ -1,115 +1,180 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { sendRecognitionAction } from "@/app/(app)/feed/actions";
+import { searchUsersAction, sendRecognitionAction } from "@/app/(app)/feed/actions";
 import { GifPicker } from "@/components/recognition/gif-picker";
 import { GifPreview } from "@/components/recognition/gif-preview";
-import { RecipientPicker } from "@/components/recognition/recipient-picker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Command,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import type { UserSummary } from "@/lib/dal/current-user";
 import { resolveGifUrl } from "@/lib/gif/curated";
+import { parseRecognitionText } from "@/lib/recognition/parse-recognition-text";
 import { cn } from "@/lib/utils";
 
 type RecognitionFormProps = {
   onSuccess?: () => void;
 };
 
+type MentionState = {
+  query: string;
+  triggerIndex: number;
+};
+
 function createRequestId(): string {
   return crypto.randomUUID();
 }
 
-function extractGifUrlFromDrop(dataTransfer: DataTransfer): string | null {
-  const candidates: string[] = [];
-
-  const uriList = dataTransfer.getData("text/uri-list");
-  if (uriList) {
-    for (const line of uriList.split(/\r?\n/)) {
-      const trimmed = line.trim();
-      if (trimmed && !trimmed.startsWith("#")) candidates.push(trimmed);
-    }
-  }
-
-  const plain = dataTransfer.getData("text/plain");
-  if (plain) candidates.push(plain.trim());
-
-  const html = dataTransfer.getData("text/html");
-  if (html) {
-    const img = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-    if (img) candidates.push(img[1].trim());
-    const href = html.match(/<a[^>]+href=["']([^"']+)["']/i);
-    if (href) candidates.push(href[1].trim());
-  }
-
-  for (const candidate of candidates) {
-    const resolved = resolveGifUrl(candidate);
-    if (resolved) return resolved;
-  }
-  return null;
-}
-
 export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
   const router = useRouter();
-  const [recipients, setRecipients] = useState<UserSummary[]>([]);
-  const [pointsPerRecipient, setPointsPerRecipient] = useState("10");
-  const [text, setText] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const [rawText, setRawText] = useState("");
+  const [mentionState, setMentionState] = useState<MentionState | null>(null);
+  const [mentionResults, setMentionResults] = useState<UserSummary[]>([]);
+  const [resolvedHandles, setResolvedHandles] = useState<Map<string, UserSummary>>(new Map());
   const [gifUrl, setGifUrl] = useState("");
-  const [hashtagsInput, setHashtagsInput] = useState("");
+  const [showGifPicker, setShowGifPicker] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
-  const [showGifPicker, setShowGifPicker] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
-  const [dropHint, setDropHint] = useState<string | null>(null);
 
-  function handleGifDrop(event: React.DragEvent) {
-    event.preventDefault();
-    setDragActive(false);
-    if (pending) return;
+  const latestSearchId = useRef(0);
 
-    const url = extractGifUrlFromDrop(event.dataTransfer);
-    if (url) {
-      setGifUrl(url);
-      setDropHint(null);
-      setShowGifPicker(false);
+  const search = useCallback(async (query: string) => {
+    if (query.length < 1) {
+      setMentionResults([]);
       return;
     }
+    const id = ++latestSearchId.current;
+    const response = await searchUsersAction(query, 8);
+    if (id !== latestSearchId.current) return;
+    setMentionResults(response.ok ? response.data : []);
+  }, []);
 
-    if (event.dataTransfer.files.length > 0) {
-      setDropHint(
-        "Uploading local files isn’t supported. Use “Choose a GIF”, or drag a GIF from a website like Giphy.",
-      );
+  useEffect(() => {
+    if (mentionState === null) {
+      setMentionResults([]);
+      return;
+    }
+    const timer = setTimeout(() => void search(mentionState.query), 200);
+    return () => clearTimeout(timer);
+  }, [mentionState, search]);
+
+  const parsed = useMemo(() => parseRecognitionText(rawText), [rawText]);
+
+  const recipients = useMemo(
+    () =>
+      parsed.handles
+        .map((h) => resolvedHandles.get(h))
+        .filter((u): u is UserSummary => u !== undefined),
+    [parsed.handles, resolvedHandles],
+  );
+
+  const totalCost = useMemo(() => {
+    if (!parsed.points || recipients.length === 0) return null;
+    return parsed.points * recipients.length;
+  }, [parsed.points, recipients.length]);
+
+  function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const value = e.target.value;
+    const cursor = e.target.selectionStart ?? value.length;
+    setRawText(value);
+    setError(null);
+
+    const textBeforeCursor = value.slice(0, cursor);
+    const atMatch = textBeforeCursor.match(/@([\w.]*)$/);
+    if (atMatch) {
+      setMentionState({
+        query: atMatch[1],
+        triggerIndex: cursor - atMatch[0].length,
+      });
     } else {
-      setDropHint(
-        "Couldn’t read a GIF from that. Drag the GIF image itself from a site like Giphy, or paste its URL below.",
-      );
+      setMentionState(null);
     }
   }
 
-  const points = Number(pointsPerRecipient);
-  const totalCost = useMemo(() => {
-    if (!Number.isFinite(points) || points <= 0 || recipients.length === 0) {
-      return null;
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Escape" && mentionState !== null) {
+      e.preventDefault();
+      setMentionState(null);
+      setMentionResults([]);
     }
-    return points * recipients.length;
-  }, [points, recipients.length]);
+  }
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  function selectMention(user: UserSummary) {
+    if (!mentionState) return;
+    const { triggerIndex, query } = mentionState;
+    const before = rawText.slice(0, triggerIndex);
+    const after = rawText.slice(triggerIndex + 1 + query.length);
+    const newText = `${before}@${user.handle} ${after}`;
+    setRawText(newText);
+    setResolvedHandles((prev) => new Map(prev).set(user.handle, user));
+    setMentionState(null);
+    setMentionResults([]);
+    textareaRef.current?.focus();
+  }
+
+  function insertAtCursor(text: string) {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? rawText.length;
+    const end = el.selectionEnd ?? rawText.length;
+    const newText = rawText.slice(0, start) + text + rawText.slice(end);
+    setRawText(newText);
+    if (text === "@") {
+      setMentionState({ query: "", triggerIndex: start });
+    }
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + text.length, start + text.length);
+    });
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (parsed.handles.length === 0 || !parsed.points) return;
     setPending(true);
     setError(null);
     setFieldErrors({});
 
-    const hashtags = hashtagsInput
-      .split(/[\s,]+/)
-      .map((t) => t.trim())
-      .filter(Boolean);
+    // Resolve any handles that weren't selected from the dropdown
+    const resolved = new Map(resolvedHandles);
+    const unresolved = parsed.handles.filter((h) => !resolved.has(h));
+    for (const handle of unresolved) {
+      const response = await searchUsersAction(handle, 5);
+      if (response.ok) {
+        const match = response.data.find((u) => u.handle === handle);
+        if (match) resolved.set(handle, match);
+      }
+    }
+
+    const finalRecipients = parsed.handles
+      .map((h) => resolved.get(h))
+      .filter((u): u is UserSummary => u !== undefined);
+
+    if (finalRecipients.length === 0) {
+      setError("No valid recipients found. Check the @handles and try again.");
+      setPending(false);
+      return;
+    }
+
+    const unknownHandles = parsed.handles.filter((h) => !resolved.has(h));
+    if (unknownHandles.length > 0) {
+      setError(`Could not find: ${unknownHandles.map((h) => `@${h}`).join(", ")}`);
+      setPending(false);
+      return;
+    }
 
     const trimmedGifUrl = gifUrl.trim();
     const gifUrlToSend = trimmedGifUrl
@@ -118,33 +183,32 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
 
     const result = await sendRecognitionAction({
       requestId: createRequestId(),
-      recipientIds: recipients.map((r) => r.id),
-      pointsPerRecipient: points,
-      text: text.trim() || undefined,
+      recipientIds: finalRecipients.map((r) => r.id),
+      pointsPerRecipient: parsed.points,
+      text: parsed.messageText || undefined,
       gifUrl: gifUrlToSend,
-      hashtags,
+      hashtags: parsed.hashtags,
     });
 
     setPending(false);
 
     if (!result.ok) {
       setError(result.error.message);
-      if (result.error.fieldErrors) {
-        setFieldErrors(result.error.fieldErrors);
-      }
+      if (result.error.fieldErrors) setFieldErrors(result.error.fieldErrors);
       return;
     }
 
     router.refresh();
     onSuccess?.();
-
-    setRecipients([]);
-    setText("");
+    setRawText("");
     setGifUrl("");
-    setHashtagsInput("");
     setShowGifPicker(false);
-    setDropHint(null);
+    setResolvedHandles(new Map());
+    setMentionState(null);
   }
+
+  const showMentionDropdown = mentionState !== null && mentionResults.length > 0;
+  const allFieldErrors = Object.values(fieldErrors).flat();
 
   return (
     <Card size="sm">
@@ -155,163 +219,165 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
           </CardTitle>
         </CardHeader>
 
-        <CardContent className="space-y-5">
-          <RecipientPicker
-            selected={recipients}
-            onChange={setRecipients}
-            disabled={pending}
-          />
-
-          <div className="max-w-xs space-y-1.5">
-            <Label htmlFor="points">Points per recipient</Label>
-            <Input
-              id="points"
-              type="number"
-              min={1}
-              required
-              value={pointsPerRecipient}
-              disabled={pending}
-              aria-invalid={Boolean(fieldErrors.pointsPerRecipient)}
-              onChange={(e) => setPointsPerRecipient(e.target.value)}
-            />
-            <p className="text-muted-foreground text-sm">
-              Total cost:{" "}
-              {totalCost === null
-                ? "add a recipient to calculate"
-                : `${totalCost} giving points`}
-            </p>
-            {fieldErrors.pointsPerRecipient?.map((msg) => (
-              <p key={msg} className="text-destructive text-sm">
-                {msg}
-              </p>
-            ))}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="text">Message</Label>
-            <Textarea
-              id="text"
-              rows={3}
-              value={text}
-              disabled={pending}
-              aria-invalid={Boolean(fieldErrors.text)}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Thank you for…"
-            />
-            {fieldErrors.text?.map((msg) => (
-              <p key={msg} className="text-destructive text-sm">
-                {msg}
-              </p>
-            ))}
-          </div>
-
+        <CardContent className="space-y-4">
+          {/* Combined input area */}
           <div
-            className="space-y-1.5"
-            onDragOver={(e) => {
-              e.preventDefault();
-              if (!pending) setDragActive(true);
-            }}
-            onDragLeave={() => setDragActive(false)}
-            onDrop={handleGifDrop}
+            className={cn(
+              "relative rounded-sm border transition-colors focus-within:border-ring",
+              allFieldErrors.length > 0 ? "border-destructive" : "border-input",
+            )}
           >
-            <Label htmlFor="gifUrl">GIF (optional)</Label>
-            <div
-              className={cn(
-                "rounded-md border border-dashed p-3 transition-colors",
-                dragActive ? "border-primary bg-primary/5" : "border-border",
+            <Textarea
+              ref={textareaRef}
+              value={rawText}
+              onChange={handleTextChange}
+              onKeyDown={handleKeyDown}
+              disabled={pending}
+              placeholder="Type @ for a recipient, + for points, # for a hashtag"
+              className="min-h-28 border-transparent px-3 py-3 focus-visible:border-transparent"
+              aria-label="Recognition message"
+              aria-invalid={allFieldErrors.length > 0}
+            />
+
+            {/* @ mention dropdown */}
+            {showMentionDropdown && (
+              <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-sm border border-border bg-popover shadow-md">
+                <Command shouldFilter={false}>
+                  <CommandList>
+                    <CommandGroup>
+                      {mentionResults.map((user) => (
+                        <CommandItem
+                          key={user.id}
+                          value={user.id}
+                          onSelect={() => selectMention(user)}
+                        >
+                          {user.name}{" "}
+                          <span className="text-muted-foreground">
+                            @{user.handle}
+                          </span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Toolbar */}
+            <div className="flex items-center gap-0.5 px-2 py-1.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                disabled={pending}
+                onClick={() => insertAtCursor("@")}
+              >
+                @ recipient
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                disabled={pending}
+                onClick={() => insertAtCursor("+")}
+              >
+                + amount
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                disabled={pending}
+                onClick={() => insertAtCursor("#")}
+              >
+                # hashtag
+              </Button>
+              <div className="ml-auto">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  disabled={pending}
+                  onClick={() => setShowGifPicker((v) => !v)}
+                  aria-expanded={showGifPicker}
+                >
+                  GIF
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Live parse preview */}
+          {(parsed.handles.length > 0 ||
+            parsed.points !== null ||
+            parsed.hashtags.length > 0) && (
+            <div className="space-y-0.5 text-sm text-muted-foreground">
+              {parsed.handles.length > 0 && (
+                <p>
+                  To:{" "}
+                  {parsed.handles
+                    .map((h) => resolvedHandles.get(h)?.name ?? `@${h}`)
+                    .join(", ")}
+                </p>
               )}
-            >
-              {gifUrl ? (
-                <div className="space-y-2">
-                  <GifPreview gifUrl={gifUrl} />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setGifUrl("");
-                      setDropHint(null);
-                    }}
-                    disabled={pending}
-                  >
-                    Remove GIF
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex flex-col items-start gap-2">
-                  <p className="text-muted-foreground text-sm">
-                    Drag a GIF here, choose one, or paste a URL.
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowGifPicker((open) => !open)}
-                    disabled={pending}
-                    aria-expanded={showGifPicker}
-                  >
-                    {showGifPicker ? "Hide GIF picker" : "Choose a GIF"}
-                  </Button>
-                </div>
+              {parsed.points !== null && (
+                <p>
+                  Points: {parsed.points} per recipient
+                  {parsed.handles.length > 0 &&
+                    ` · ${parsed.points * parsed.handles.length} total`}
+                </p>
+              )}
+              {parsed.hashtags.length > 0 && (
+                <p>{parsed.hashtags.map((h) => `#${h}`).join(" ")}</p>
               )}
             </div>
+          )}
 
-            {showGifPicker && !gifUrl ? (
-              <GifPicker
-                onSelect={(url) => {
-                  setGifUrl(url);
-                  setShowGifPicker(false);
-                  setDropHint(null);
-                }}
-                onClose={() => setShowGifPicker(false)}
-              />
-            ) : null}
-
-            <Input
-              id="gifUrl"
-              type="url"
-              value={gifUrl}
-              disabled={pending}
-              aria-invalid={Boolean(fieldErrors.gifUrl)}
-              onChange={(e) => setGifUrl(e.target.value)}
-              placeholder="https://media.giphy.com/..."
-              aria-label="GIF URL"
+          {/* GIF picker and preview */}
+          {showGifPicker && !gifUrl && (
+            <GifPicker
+              onSelect={(url) => {
+                setGifUrl(url);
+                setShowGifPicker(false);
+              }}
+              onClose={() => setShowGifPicker(false)}
             />
+          )}
+          {gifUrl && (
+            <div className="space-y-2">
+              <GifPreview gifUrl={gifUrl} />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setGifUrl("")}
+                disabled={pending}
+              >
+                Remove GIF
+              </Button>
+            </div>
+          )}
 
-            {dropHint ? (
-              <p className="text-muted-foreground text-sm">{dropHint}</p>
-            ) : null}
-            {fieldErrors.gifUrl?.map((msg) => (
-              <p key={msg} className="text-destructive text-sm">
-                {msg}
-              </p>
-            ))}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="hashtags">Hashtags</Label>
-            <Input
-              id="hashtags"
-              type="text"
-              value={hashtagsInput}
-              disabled={pending}
-              onChange={(e) => setHashtagsInput(e.target.value)}
-              placeholder="#teamwork #kudos"
-            />
-          </div>
-
-          {error ? (
+          {/* Errors */}
+          {allFieldErrors.map((msg) => (
+            <p key={msg} className="text-sm text-destructive">
+              {msg}
+            </p>
+          ))}
+          {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
-          ) : null}
+          )}
 
           <Button
             type="submit"
-            disabled={pending || recipients.length === 0}
-            className="w-full sm:w-auto"
+            disabled={pending || parsed.handles.length === 0 || !parsed.points}
+            className="w-full"
           >
-            {pending ? "Sending…" : "Send recognition"}
+            {pending ? "Sending…" : "Give recognition"}
           </Button>
         </CardContent>
       </form>
