@@ -8,7 +8,7 @@ import { GifPicker } from "@/components/recognition/gif-picker";
 import { GifPreview } from "@/components/recognition/gif-preview";
 import { RecipientPicker } from "@/components/recognition/recipient-picker";
 import type { UserSummary } from "@/lib/dal/current-user";
-import { normalizeGifHost } from "@/lib/gif/curated";
+import { resolveGifUrl } from "@/lib/gif/curated";
 
 type RecognitionFormProps = {
   onSuccess?: () => void;
@@ -19,18 +19,32 @@ function createRequestId(): string {
 }
 
 function extractGifUrlFromDrop(dataTransfer: DataTransfer): string | null {
+  const candidates: string[] = [];
+
   const uriList = dataTransfer.getData("text/uri-list");
-  const plain = dataTransfer.getData("text/plain");
-  const html = dataTransfer.getData("text/html");
-
-  let candidate = (uriList || plain || "").trim();
-  if (!candidate && html) {
-    const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-    if (match) candidate = match[1].trim();
+  if (uriList) {
+    for (const line of uriList.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith("#")) candidates.push(trimmed);
+    }
   }
-  if (!candidate) return null;
 
-  return normalizeGifHost(candidate);
+  const plain = dataTransfer.getData("text/plain");
+  if (plain) candidates.push(plain.trim());
+
+  const html = dataTransfer.getData("text/html");
+  if (html) {
+    const img = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+    if (img) candidates.push(img[1].trim());
+    const href = html.match(/<a[^>]+href=["']([^"']+)["']/i);
+    if (href) candidates.push(href[1].trim());
+  }
+
+  for (const candidate of candidates) {
+    const resolved = resolveGifUrl(candidate);
+    if (resolved) return resolved;
+  }
+  return null;
 }
 
 export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
@@ -80,12 +94,17 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
       .map((t) => t.trim())
       .filter(Boolean);
 
+    const trimmedGifUrl = gifUrl.trim();
+    const gifUrlToSend = trimmedGifUrl
+      ? (resolveGifUrl(trimmedGifUrl) ?? trimmedGifUrl)
+      : undefined;
+
     const result = await sendRecognitionAction({
       requestId: createRequestId(),
       recipientIds: recipients.map((r) => r.id),
       pointsPerRecipient: points,
       text: text.trim() || undefined,
-      gifUrl: gifUrl.trim() || undefined,
+      gifUrl: gifUrlToSend,
       hashtags,
     });
 

@@ -31,6 +31,78 @@ export function normalizeGifHost(rawUrl: string): string | null {
   }
 }
 
+const GIPHY_ID_PATTERN = /^[A-Za-z0-9]{5,}$/;
+
+/**
+ * Extracts a Giphy GIF id from any Giphy URL shape:
+ * - detail/share links: `/gifs/<slug>-<id>`, `/stickers/<slug>-<id>`, `/clips/...-<id>`
+ * - embeds: `/embed/<id>`
+ * - media assets: `/media/<id>/giphy.gif` or `/media/v1.<cid>/<id>/200.webp`
+ * - short image hosts: `i.giphy.com/<id>.gif`
+ */
+function extractGiphyId(url: URL): string | null {
+  const segments = url.pathname.split("/").filter(Boolean);
+  if (segments.length === 0) return null;
+  const last = segments[segments.length - 1];
+
+  const mediaIdx = segments.indexOf("media");
+  if (mediaIdx !== -1 && segments.length > mediaIdx + 1) {
+    if (last.includes(".") && segments.length >= 2) {
+      const candidate = segments[segments.length - 2];
+      if (candidate && !candidate.startsWith("v1.")) return candidate;
+    }
+    const afterMedia = segments[mediaIdx + 1];
+    if (afterMedia && !afterMedia.startsWith("v1.")) return afterMedia;
+    if (segments.length > mediaIdx + 2) return segments[mediaIdx + 2];
+  }
+
+  const embedIdx = segments.indexOf("embed");
+  if (embedIdx !== -1 && segments[embedIdx + 1]) return segments[embedIdx + 1];
+
+  if (
+    segments.includes("gifs") ||
+    segments.includes("stickers") ||
+    segments.includes("clips")
+  ) {
+    const dashIdx = last.lastIndexOf("-");
+    const id = dashIdx >= 0 ? last.slice(dashIdx + 1) : last;
+    if (GIPHY_ID_PATTERN.test(id)) return id;
+  }
+
+  if (url.hostname.startsWith("i.") && last.includes(".")) {
+    const id = last.split(".")[0];
+    if (GIPHY_ID_PATTERN.test(id)) return id;
+  }
+
+  return null;
+}
+
+/**
+ * Resolves a raw URL (e.g. from a drag-and-drop or a pasted link) into a GIF URL
+ * on the allowlisted media host. Giphy links of any shape are rebuilt into the
+ * canonical `media.giphy.com/media/<id>/giphy.gif`; other hosts fall back to
+ * host normalization. Returns null for URLs we cannot use (e.g. `data:`).
+ */
+export function resolveGifUrl(rawUrl: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:") return null;
+
+  const host = url.hostname.toLowerCase();
+  if (host === "giphy.com" || host.endsWith(".giphy.com")) {
+    const id = extractGiphyId(url);
+    if (id) {
+      return `https://${GIPHY_MEDIA_HOST}/media/${id}/giphy.gif`;
+    }
+  }
+
+  return normalizeGifHost(rawUrl);
+}
+
 function giphy(id: string): Pick<GifResult, "url" | "previewUrl"> {
   return {
     url: `https://${GIPHY_MEDIA_HOST}/media/${id}/giphy.gif`,
