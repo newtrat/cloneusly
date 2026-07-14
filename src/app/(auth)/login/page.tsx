@@ -22,7 +22,10 @@ export default async function LoginPage({
   }
 
   const params = await searchParams;
-  const firstAccessSuccess = params.firstAccess === "success";
+  const firstAccessParam = params.firstAccess;
+  const firstAccessSuccess = Array.isArray(firstAccessParam)
+    ? firstAccessParam.includes("success")
+    : firstAccessParam === "success";
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">

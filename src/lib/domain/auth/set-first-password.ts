@@ -1,5 +1,6 @@
 import "server-only";
 
+import { Prisma } from "@prisma/client";
 import { hashPassword } from "better-auth/crypto";
 
 import { createCorrelationId, logOperation } from "@/lib/domain/logger";
@@ -41,10 +42,27 @@ export async function setFirstPassword(
     );
   }
 
-  const user = existing ?? (await provisionNewUser(email));
+  let userId: string;
+  let userEmail: string;
+  if (existing) {
+    userId = existing.id;
+    userEmail = existing.email;
+  } else {
+    const slackProfile = await fetchSlackProfileByEmail(email);
+    if (!slackProfile) {
+      return err(
+        "ACCOUNT_NOT_FOUND",
+        "No Cloneusly account found for that email.",
+        { correlationId },
+      );
+    }
+    const provisioned = await provisionUserFromSlackProfile(slackProfile, email);
+    userId = provisioned.id;
+    userEmail = provisioned.email;
+  }
 
   const existingAccount = await prisma.account.findFirst({
-    where: { userId: user.id, providerId: "credential" },
+    where: { userId, providerId: "credential" },
   });
 
   if (existingAccount) {
@@ -60,17 +78,30 @@ export async function setFirstPassword(
   try {
     await prisma.account.create({
       data: {
-        accountId: user.id,
+        accountId: userId,
         providerId: "credential",
-        userId: user.id,
+        userId,
         password: hashedPassword,
       },
     });
   } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      // A concurrent request won the race and already created the
+      // credential account for this user.
+      return err(
+        "PASSWORD_ALREADY_SET",
+        "This account already has a password. Contact an admin if you need it reset.",
+        { correlationId },
+      );
+    }
+
     logOperation("error", "Failed to set first password", {
       operation: "setFirstPassword",
       correlationId,
-      userId: user.id,
+      userId,
       error: error instanceof Error ? error.message : String(error),
     });
     return err("INTERNAL_ERROR", "Unable to set password.", {
@@ -81,13 +112,8 @@ export async function setFirstPassword(
   logOperation("info", "First password set", {
     operation: "setFirstPassword",
     correlationId,
-    userId: user.id,
+    userId,
   });
 
-  return ok({ email: user.email });
-}
-
-async function provisionNewUser(email: string) {
-  const slackProfile = await fetchSlackProfileByEmail(email);
-  return provisionUserFromSlackProfile(slackProfile ?? {}, email);
+  return ok({ email: userEmail });
 }
