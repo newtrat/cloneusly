@@ -17,6 +17,8 @@ export type ErrorCode =
   | "CONFLICT_RETRY_EXHAUSTED"
   | "ACCOUNT_NOT_FOUND"
   | "PASSWORD_ALREADY_SET"
+  | "EMAIL_DOMAIN_NOT_ALLOWED"
+  | "INVALID_OR_EXPIRED_CODE"
   | "INTERNAL_ERROR";
 
 export type CommandError = {

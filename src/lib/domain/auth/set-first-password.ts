@@ -3,6 +3,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { hashPassword } from "better-auth/crypto";
 
+import { consumeVerificationCode } from "@/lib/domain/auth/first-access-code";
 import { createCorrelationId, logOperation } from "@/lib/domain/logger";
 import { err, ok, type CommandResult } from "@/lib/domain/result";
 import {
@@ -11,6 +12,7 @@ import {
   provisionUserFromSlackProfile,
 } from "@/lib/domain/users/provision-slack-user";
 import { prisma } from "@/lib/prisma";
+import { isAllowedCompanyEmail } from "@/lib/validation/email-domain";
 import { parseSetFirstPasswordInput } from "@/lib/validation/auth";
 
 export type SetFirstPasswordData = {
@@ -31,6 +33,24 @@ export async function setFirstPassword(
   }
 
   const email = parsed.data.email.trim().toLowerCase();
+
+  if (!isAllowedCompanyEmail(email)) {
+    return err(
+      "EMAIL_DOMAIN_NOT_ALLOWED",
+      "This email domain is not allowed.",
+      { correlationId },
+    );
+  }
+
+  // Email ownership is proven by consuming the one-time code sent over Slack DM.
+  const codeValid = await consumeVerificationCode(email, parsed.data.code);
+  if (!codeValid) {
+    return err(
+      "INVALID_OR_EXPIRED_CODE",
+      "That code is invalid or has expired. Request a new one.",
+      { correlationId },
+    );
+  }
 
   const existing = await findUserByEmailAnyStatus(email);
 
