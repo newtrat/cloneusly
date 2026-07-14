@@ -113,6 +113,16 @@ export async function grantUserMonthlyAllowance(
           if (priorGrant) return;
 
           const now = new Date();
+
+          // The monthly giving allowance does not carry over: any unused giving
+          // points expire and the balance resets to exactly MONTHLY_GRANT_AMOUNT.
+          // Received points are a separate balance and are never touched here.
+          const account = await tx.pointAccount.findUnique({
+            where: { userId },
+            select: { givingBalance: true },
+          });
+          const leftover = account?.givingBalance ?? 0;
+
           const transaction = await tx.pointTransaction.create({
             data: {
               kind: "MONTHLY_GRANT",
@@ -134,6 +144,20 @@ export async function grantUserMonthlyAllowance(
             },
           });
 
+          // Expire whatever giving points were left over (immutable ledger:
+          // recorded as a negative entry rather than a silent balance edit).
+          if (leftover > 0) {
+            await tx.pointEntry.create({
+              data: {
+                transactionId: transaction.id,
+                userId,
+                bucket: "GIVING",
+                delta: -leftover,
+                createdAt: now,
+              },
+            });
+          }
+
           await tx.pointEntry.create({
             data: {
               transactionId: transaction.id,
@@ -146,7 +170,7 @@ export async function grantUserMonthlyAllowance(
 
           await tx.pointAccount.update({
             where: { userId },
-            data: { givingBalance: { increment: MONTHLY_GRANT_AMOUNT } },
+            data: { givingBalance: MONTHLY_GRANT_AMOUNT },
           });
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },

@@ -3,7 +3,10 @@ import "../fixtures/auth-mock";
 import { describe, expect, it, beforeAll, afterAll, beforeEach, vi } from "vitest";
 
 import { createTestTopUp } from "@/lib/domain/points/create-test-topup";
-import { reconcileMonthlyGrants } from "@/lib/domain/points/reconcile-monthly-grants";
+import {
+  grantUserMonthlyAllowance,
+  reconcileMonthlyGrants,
+} from "@/lib/domain/points/reconcile-monthly-grants";
 import {
   clearSessionUser,
   mockSessionUser,
@@ -15,7 +18,7 @@ import {
   resetTestDatabase,
   getTestPrisma,
 } from "../fixtures/database";
-import { createActiveUser } from "../fixtures/factories";
+import { createActiveUser, createRecognition } from "../fixtures/factories";
 import { expectLedgerMatchesBalances } from "../fixtures/ledger-assertions";
 
 const hasDatabase = Boolean(getTestDatabaseUrl());
@@ -57,6 +60,56 @@ describe.skipIf(!hasDatabase)("grants and top-ups integration", () => {
     const prisma = getTestPrisma();
     const grants = await prisma.monthlyGrant.count();
     expect(grants).toBe(2);
+  });
+
+  it("resets the giving allowance each month instead of accumulating, leaving received untouched", async () => {
+    const prisma = getTestPrisma();
+    const alice = await createActiveUser({
+      email: "reset-a@test.local",
+      handle: "reseta",
+      name: "Reset A",
+    });
+    const bob = await createActiveUser({
+      email: "reset-b@test.local",
+      handle: "resetb",
+      name: "Reset B",
+    });
+
+    const month1 = new Date("2026-01-01T00:00:00.000Z");
+    const month2 = new Date("2026-02-01T00:00:00.000Z");
+
+    // Month 1: allowance granted, then Alice spends 60 of it on Bob.
+    await grantUserMonthlyAllowance(alice.id, month1);
+    await createRecognition({
+      senderId: alice.id,
+      recipientIds: [bob.id],
+      pointsPerRecipient: 60,
+    });
+
+    const aliceAfterMonth1 = await prisma.pointAccount.findUniqueOrThrow({
+      where: { userId: alice.id },
+    });
+    expect(aliceAfterMonth1.givingBalance).toBe(40);
+
+    // Month 2: leftover expires and the allowance resets to exactly 100
+    // (cumulative behavior would have produced 140).
+    const outcome = await grantUserMonthlyAllowance(alice.id, month2);
+    expect(outcome).toBe("granted");
+
+    const aliceAfterMonth2 = await prisma.pointAccount.findUniqueOrThrow({
+      where: { userId: alice.id },
+    });
+    expect(aliceAfterMonth2.givingBalance).toBe(100);
+    expect(aliceAfterMonth2.receivedBalance).toBe(0);
+
+    // Received points accumulate and are never touched by the monthly reset.
+    const bobAccount = await prisma.pointAccount.findUniqueOrThrow({
+      where: { userId: bob.id },
+    });
+    expect(bobAccount.receivedBalance).toBe(60);
+
+    await expectLedgerMatchesBalances(alice.id);
+    await expectLedgerMatchesBalances(bob.id);
   });
 
   it("skips inactive users for monthly grants", async () => {
