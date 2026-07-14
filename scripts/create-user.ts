@@ -19,7 +19,8 @@ Usage:
 Required:
   --email <email>       Login email (stored lowercased, must be unique)
   --name "<name>"       Display name
-  --handle <handle>     Unique handle, letters/numbers/underscores (stored lowercased)
+  --handle <handle>     Unique handle: letters, numbers, underscores, dots,
+                        hyphens (2-32 chars, stored lowercased)
 
 Options:
   --password <value>    Password (min 8 chars). Falls back to CREATE_USER_PASSWORD
@@ -87,9 +88,9 @@ function parseArgs(argv: string[]): CliOptions {
   if (name.length === 0) {
     errors.push("--name is required");
   }
-  if (!/^[a-z0-9_]{2,32}$/.test(handle)) {
+  if (!/^[a-z0-9._-]{2,32}$/.test(handle)) {
     errors.push(
-      "--handle must be 2-32 chars of lowercase letters, numbers, or underscores",
+      "--handle must be 2-32 chars of lowercase letters, numbers, underscores, dots, or hyphens",
     );
   }
   if (password.length < 8) {
