@@ -15,6 +15,8 @@ export type ErrorCode =
   | "RECOGNITION_NOT_FOUND"
   | "GIF_HOST_NOT_ALLOWED"
   | "CONFLICT_RETRY_EXHAUSTED"
+  | "ACCOUNT_NOT_FOUND"
+  | "PASSWORD_ALREADY_SET"
   | "INTERNAL_ERROR";
 
 export type CommandError = {

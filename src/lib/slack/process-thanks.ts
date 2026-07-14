@@ -6,6 +6,8 @@ import {
   type SendRecognitionData,
 } from "@/lib/domain/recognition/send-recognition";
 import type { CommandResult } from "@/lib/domain/result";
+import { getEnv } from "@/lib/env";
+import { prisma } from "@/lib/prisma";
 import type { ParsedThanksCommand } from "@/lib/slack/parse-thanks";
 import {
   resolveRecipientRefs,
@@ -30,6 +32,19 @@ export async function processThanks(params: {
   const senderResult = await resolveSlackUserById(params.senderSlackId);
   if (!senderResult.ok) {
     return { ok: false, message: senderResult.reason };
+  }
+
+  const senderHasActivatedAccount = await prisma.account.findFirst({
+    where: { userId: senderResult.user.id, providerId: "credential" },
+    select: { id: true },
+  });
+  if (!senderHasActivatedAccount) {
+    const appUrl = getEnv().BETTER_AUTH_URL ?? "https://cloneusly.vercel.app";
+    const setPasswordUrl = `${appUrl}/first-access?email=${encodeURIComponent(senderResult.user.email)}`;
+    return {
+      ok: false,
+      message: `You need to activate your Cloneusly account before giving points. Set your password here: ${setPasswordUrl}`,
+    };
   }
 
   const { resolved, failures } = await resolveRecipientRefs(
