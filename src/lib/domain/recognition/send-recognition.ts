@@ -149,6 +149,21 @@ export async function sendRecognitionForUser(
             throw new RecipientNotFoundError();
           }
 
+          // Spend the monthly allowance first; only dip into converted points
+          // (which never expire) once the allowance is exhausted.
+          const senderAccount = await tx.pointAccount.findUnique({
+            where: { userId: sender.id },
+            select: { givingBalance: true, convertedGivingBalance: true },
+          });
+          if (!senderAccount) {
+            throw new InsufficientPointsError();
+          }
+          const allowancePortion = Math.max(
+            0,
+            senderAccount.givingBalance - senderAccount.convertedGivingBalance,
+          );
+          const dipIntoConverted = Math.max(0, totalCost - allowancePortion);
+
           const deduct = await tx.pointAccount.updateMany({
             where: {
               userId: sender.id,
@@ -156,6 +171,7 @@ export async function sendRecognitionForUser(
             },
             data: {
               givingBalance: { decrement: totalCost },
+              convertedGivingBalance: { decrement: dipIntoConverted },
             },
           });
 

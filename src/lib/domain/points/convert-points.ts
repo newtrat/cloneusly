@@ -91,6 +91,8 @@ export async function convertReceivedPoints(
             data: {
               receivedBalance: { decrement: data.amount },
               givingBalance: { increment: data.amount },
+              // Converted points are protected from the monthly reset.
+              convertedGivingBalance: { increment: data.amount },
             },
           });
 

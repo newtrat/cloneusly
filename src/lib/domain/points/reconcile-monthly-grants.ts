@@ -114,14 +114,19 @@ export async function grantUserMonthlyAllowance(
 
           const now = new Date();
 
-          // The monthly giving allowance does not carry over: any unused giving
-          // points expire and the balance resets to exactly MONTHLY_GRANT_AMOUNT.
+          // The monthly giving allowance does not carry over: any unused
+          // allowance expires and resets to MONTHLY_GRANT_AMOUNT. Converted
+          // points (received -> giving) are preserved — they last until used.
           // Received points are a separate balance and are never touched here.
           const account = await tx.pointAccount.findUnique({
             where: { userId },
-            select: { givingBalance: true },
+            select: { givingBalance: true, convertedGivingBalance: true },
           });
-          const leftover = account?.givingBalance ?? 0;
+          const converted = account?.convertedGivingBalance ?? 0;
+          const allowanceLeftover = Math.max(
+            0,
+            (account?.givingBalance ?? 0) - converted,
+          );
 
           const transaction = await tx.pointTransaction.create({
             data: {
@@ -144,15 +149,16 @@ export async function grantUserMonthlyAllowance(
             },
           });
 
-          // Expire whatever giving points were left over (immutable ledger:
-          // recorded as a negative entry rather than a silent balance edit).
-          if (leftover > 0) {
+          // Expire only the unused allowance (immutable ledger: recorded as a
+          // negative entry rather than a silent balance edit). Converted points
+          // are left in place.
+          if (allowanceLeftover > 0) {
             await tx.pointEntry.create({
               data: {
                 transactionId: transaction.id,
                 userId,
                 bucket: "GIVING",
-                delta: -leftover,
+                delta: -allowanceLeftover,
                 createdAt: now,
               },
             });
@@ -168,9 +174,10 @@ export async function grantUserMonthlyAllowance(
             },
           });
 
+          // New giving balance = preserved converted points + fresh allowance.
           await tx.pointAccount.update({
             where: { userId },
-            data: { givingBalance: MONTHLY_GRANT_AMOUNT },
+            data: { givingBalance: converted + MONTHLY_GRANT_AMOUNT },
           });
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
