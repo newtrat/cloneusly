@@ -11,7 +11,10 @@ services:
       POSTGRES_PASSWORD: cloneusly
       POSTGRES_DB: cloneusly_dev
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # Postgres 18 stores data under a major-version subdirectory
+      # (e.g. /var/lib/postgresql/18/docker), so the volume must be mounted
+      # at /var/lib/postgresql rather than the legacy /var/lib/postgresql/data.
+      - postgres_data:/var/lib/postgresql
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cloneusly -d cloneusly_dev"]
