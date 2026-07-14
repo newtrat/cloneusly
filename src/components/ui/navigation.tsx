@@ -8,6 +8,7 @@ import {
   RiNotification3Line,
   RiSettings3Line,
   RiTrophyLine,
+  RiUser3Line,
 } from "@remixicon/react";
 
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +72,13 @@ export function Navigation({ unreadCount }: NavigationProps) {
             ) : null}
           </Link>
         ))}
+        <Link
+          href="/profile"
+          aria-label="Profile"
+          className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+        >
+          <RiUser3Line aria-hidden="true" />
+        </Link>
         <SignOutButton />
       </div>
 
@@ -114,7 +122,18 @@ export function Navigation({ unreadCount }: NavigationProps) {
                 </Link>
               ))}
             </div>
-            <div className="mt-auto border-t p-4">
+            <div className="mt-auto flex flex-col gap-1 border-t p-4">
+              <Link
+                href="/profile"
+                className={cn(
+                  buttonVariants({ variant: "ghost" }),
+                  "h-11 w-full justify-start px-4",
+                )}
+                onClick={() => setMobileOpen(false)}
+              >
+                <RiUser3Line data-icon="inline-start" aria-hidden="true" />
+                Profile
+              </Link>
               <SignOutButton className="h-11 w-full px-4" />
             </div>
           </SheetContent>
