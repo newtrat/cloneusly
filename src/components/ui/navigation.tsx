@@ -72,6 +72,7 @@ export function Navigation({ unreadCount }: NavigationProps) {
             ) : null}
           </Link>
         ))}
+        <SignOutButton />
         <Link
           href="/profile"
           aria-label="Profile"
@@ -79,7 +80,6 @@ export function Navigation({ unreadCount }: NavigationProps) {
         >
           <RiUser3Line aria-hidden="true" />
         </Link>
-        <SignOutButton />
       </div>
 
       <div className="md:hidden">
