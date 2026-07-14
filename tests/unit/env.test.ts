@@ -63,4 +63,15 @@ describe("env", () => {
     expect(env.SLACK_SIGNING_SECRET).toBe("slack-signing-secret");
     expect(env.SLACK_BOT_TOKEN).toBe("xoxb-test-bot-token");
   });
+
+  it("allows BETTER_AUTH_URL to be omitted for Vercel previews", () => {
+    resetEnvCache();
+    process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/db";
+    process.env.BETTER_AUTH_SECRET = "x".repeat(32);
+    process.env.VERCEL_ENV = "preview";
+    process.env.VERCEL_URL = "cloneusly-abc123-newtrats-projects.vercel.app";
+    delete process.env.BETTER_AUTH_URL;
+
+    expect(getEnv().BETTER_AUTH_URL).toBeUndefined();
+  });
 });
