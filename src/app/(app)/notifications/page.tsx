@@ -1,4 +1,5 @@
 import { NotificationsClient } from "@/components/notifications/notifications-client";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getNotifications } from "@/lib/dal/notifications";
 
 export default async function NotificationsPage() {
@@ -8,7 +9,7 @@ export default async function NotificationsPage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-semibold">Notifications</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-sm">
           Recognition activity involving you.
         </p>
       </header>
@@ -19,9 +20,10 @@ export default async function NotificationsPage() {
           initialCursor={result.data.nextCursor}
         />
       ) : (
-        <p role="alert" className="text-destructive">
-          {result.error.message}
-        </p>
+        <Alert variant="destructive">
+          <AlertTitle>Unable to load notifications</AlertTitle>
+          <AlertDescription>{result.error.message}</AlertDescription>
+        </Alert>
       )}
     </div>
   );

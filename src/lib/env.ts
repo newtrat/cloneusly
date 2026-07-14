@@ -11,7 +11,7 @@ const envSchema = z.object({
   DIRECT_URL: z.string().min(1).optional(),
   TEST_DATABASE_URL: z.string().min(1).optional(),
   BETTER_AUTH_SECRET: z.string().min(32),
-  BETTER_AUTH_URL: z.string().url(),
+  BETTER_AUTH_URL: z.string().url().optional(),
   COMPANY_TIME_ZONE: z.string().min(1).default("America/Los_Angeles"),
   CRON_SECRET: optionalSecret,
   GIPHY_API_KEY: optionalSecret,
@@ -30,6 +30,8 @@ const envSchema = z.object({
         .filter(Boolean),
     ),
   SEED_USER_PASSWORD: z.string().min(8).optional(),
+  SLACK_SIGNING_SECRET: optionalSecret,
+  SLACK_BOT_TOKEN: optionalSecret,
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),

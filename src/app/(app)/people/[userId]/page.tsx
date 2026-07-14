@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 
 import { FeedEmpty, FeedList } from "@/components/feed/feed-list";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { getUserActivity } from "@/lib/dal/user-activity";
 
 type PeoplePageProps = {
@@ -16,9 +19,10 @@ export default async function PeoplePage({ params }: PeoplePageProps) {
       notFound();
     }
     return (
-      <div role="alert" className="text-destructive">
-        {activity.error.message}
-      </div>
+      <Alert variant="destructive">
+        <AlertTitle>Unable to load profile</AlertTitle>
+        <AlertDescription>{activity.error.message}</AlertDescription>
+      </Alert>
     );
   }
 
@@ -26,10 +30,14 @@ export default async function PeoplePage({ params }: PeoplePageProps) {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-2xl font-semibold">{user.name}</h1>
-        <p className="text-muted-foreground">@{user.handle}</p>
-      </header>
+      <Card size="sm">
+        <CardContent>
+          <header className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="text-2xl font-semibold">{user.name}</h1>
+            <Badge variant="secondary">@{user.handle}</Badge>
+          </header>
+        </CardContent>
+      </Card>
 
       <section aria-labelledby="sent-heading">
         <h2 id="sent-heading" className="mb-3 text-lg font-semibold">

@@ -14,7 +14,31 @@ Internal peer recognition and points app built with Next.js 15, Better Auth, Pri
 Use separate databases for development and integration tests. Never use a
 production database locally.
 
-If PostgreSQL was installed with Homebrew:
+### Option A: Docker Compose (recommended)
+
+Requires Docker Desktop (or another Docker engine) with Compose.
+
+```bash
+docker compose up -d
+docker compose ps
+```
+
+The compose file starts PostgreSQL 18, creates `cloneusly_dev` and
+`cloneusly_test`, and persists data in a `postgres_data` volume. Default
+credentials are user `cloneusly` / password `cloneusly`. The database is
+published on host port `5433` (not `5432`) so it does not clash with a
+Homebrew Postgres already listening on `5432`.
+
+Stop the database when you are done:
+
+```bash
+docker compose down
+```
+
+Use `docker compose down -v` only if you also want to delete the local data
+volume.
+
+### Option B: Homebrew
 
 ```bash
 brew services start postgresql@14
@@ -41,7 +65,18 @@ npm install
 cp .env.example .env.local
 ```
 
-Configure `.env.local`:
+Configure `.env.local`. If you started the database with Docker Compose:
+
+```dotenv
+DATABASE_URL="postgresql://cloneusly:cloneusly@localhost:5433/cloneusly_dev?schema=public"
+DIRECT_URL="postgresql://cloneusly:cloneusly@localhost:5433/cloneusly_dev?schema=public"
+TEST_DATABASE_URL="postgresql://cloneusly:cloneusly@localhost:5433/cloneusly_test?schema=public"
+BETTER_AUTH_SECRET=<generated secret>
+BETTER_AUTH_URL=http://localhost:3000
+SEED_USER_PASSWORD=<development-only password>
+```
+
+If you use Homebrew PostgreSQL instead:
 
 ```dotenv
 DATABASE_URL="postgresql://YOUR_MACOS_USERNAME@localhost:5432/cloneusly_dev?schema=public"
@@ -62,22 +97,19 @@ Generate a unique Better Auth secret for each environment:
 openssl rand -base64 32
 ```
 
-Copy the command output into `BETTER_AUTH_SECRET`. Do not commit `.env.local`
-or reuse the development secret in preview or production.
+Copy the command output into `BETTER_AUTH_SECRET`. Do not commit `.env` /
+`.env.local` or reuse the development secret in preview or production.
 
-Before running database scripts, export the variables from `.env.local` into the
-current shell:
+Prisma CLI loads `DATABASE_URL` and `DIRECT_URL` from `.env` and `.env.local`;
+explicit shell or CI values take precedence. Next.js also reads those files for
+`npm run dev`. The standalone seed script needs its variables exported from
+`.env.local` first:
 
 ```bash
 set -a
 source .env.local
 set +a
 ```
-
-`set -a` temporarily auto-exports variables created while sourcing the file, so
-`npm` and Prisma can access `DATABASE_URL`, `DIRECT_URL`, and
-`SEED_USER_PASSWORD`. `set +a` turns auto-export back off. Next.js loads
-`.env.local` for `npm run dev`, but standalone Prisma and seed commands do not.
 
 Prepare the database:
 
@@ -123,7 +155,8 @@ npm run create-user -- --email dave@cloneusly.local --name "Dave Member" --handl
 Options:
 
 - `--email`, `--name`, `--handle` are required; email and handle are stored
-  lowercased and must be unique (case-insensitive).
+  lowercased and must be unique (case-insensitive). Handle may include letters,
+  numbers, underscores, dots, and hyphens (2–32 chars).
 - `--password` sets the login password (min 8 chars). If omitted it falls back to
   `CREATE_USER_PASSWORD`, then `SEED_USER_PASSWORD`.
 - `--role MEMBER|TESTER` (default `MEMBER`).
@@ -140,6 +173,21 @@ npm run test:integration   # requires TEST_DATABASE_URL
 npm run build
 npm run test:e2e           # optional: set E2E_USER_EMAIL and E2E_USER_PASSWORD
 ```
+
+## Vercel preview environments
+
+Preview deployments use a separate database and Better Auth secret from
+production. Configure these variables with the **Preview** target in Vercel:
+
+- `DATABASE_URL` and `DIRECT_URL`: direct connection strings for the preview
+  database, never the production database.
+- `BETTER_AUTH_SECRET`: a dedicated preview secret.
+- `COMPANY_TIME_ZONE`: the company time zone, such as `America/Los_Angeles`.
+
+`BETTER_AUTH_URL` is intentionally not required in Vercel previews. The app
+uses Vercel's per-deployment `VERCEL_URL` and trusts only this team's
+`*.newtrats-projects.vercel.app` preview domains. Production still requires an
+explicit `BETTER_AUTH_URL`.
 
 ## Architecture
 
@@ -158,12 +206,32 @@ Authenticated users can:
 4. **View leaderboards** — rolling 24h/7d/30d rankings, optional hashtag filter (US4)
 5. **Receive monthly grants** — daily cron reconciliation; testers can self top-up in test mode (US5)
 6. **Celebrate socially** — reactions, comments, in-app notifications (US6)
+7. **Send thanks from Slack** — `/thanks` slash command and **Send Thanks** shortcut modal
 
-## Architecture
+## Slack integration
+
+Slash command and interactivity hit:
+
+- `POST /api/slack/command` — `/thanks @user1 @user2 +10 for being awesome #teamwork`
+- `POST /api/slack/interactive` — shortcut `interactive_shortcut` opens a modal; submission creates the same recognition
+
+Configure in `.env.local` / Vercel (never commit real tokens):
+
+```dotenv
+SLACK_SIGNING_SECRET=<signing secret>
+SLACK_BOT_TOKEN=xoxb-...
+```
+
+Bot token scopes: `commands`, `users:read`, `users:read.email`, `chat:write`. Interactivity and the slash command request URLs must point at your deployed app (for example `https://cloneusly.vercel.app/api/slack/command` and `.../api/slack/interactive`). The bot must be in the channel for ephemeral confirmation after the message shortcut.
+
+Users are matched by Slack profile **email** to an active Cloneusly account. Rotate any Slack secrets that were shared outside a password manager.
+
+## Operations
 
 - Never point development, test, or seed commands at production databases
 - Set `ENABLE_TEST_TOPUPS=false` in production unless the demo requires tester controls
 - `CRON_SECRET` is required only for the monthly-grant cron route (User Story 5)
+- `SLACK_SIGNING_SECRET` and `SLACK_BOT_TOKEN` are required only for `/api/slack/*` routes
 
 ### GIF picker
 

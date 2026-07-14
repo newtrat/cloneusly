@@ -2,7 +2,10 @@ import "server-only";
 
 import { Prisma } from "@prisma/client";
 
-import { requireActiveUser } from "@/lib/auth/require-user";
+import {
+  requireActiveUser,
+  type AuthenticatedUser,
+} from "@/lib/auth/require-user";
 import {
   hashRequestInput,
   userIdempotencyScope,
@@ -16,9 +19,7 @@ import {
   computeTotalCost,
   hasDuplicateStrings,
 } from "@/lib/validation/common";
-import {
-  parseSendRecognitionInput,
-} from "@/lib/validation/recognition";
+import { parseSendRecognitionInput } from "@/lib/validation/recognition";
 
 export type SendRecognitionData = {
   recognitionId: string;
@@ -35,11 +36,16 @@ export type SendRecognitionData = {
 export async function sendRecognition(
   input: unknown,
 ): Promise<CommandResult<SendRecognitionData>> {
-  const correlationId = createCorrelationId();
   const authResult = await requireActiveUser();
   if (!authResult.ok) return authResult;
+  return sendRecognitionForUser(authResult.data, input);
+}
 
-  const sender = authResult.data;
+export async function sendRecognitionForUser(
+  sender: AuthenticatedUser,
+  input: unknown,
+): Promise<CommandResult<SendRecognitionData>> {
+  const correlationId = createCorrelationId();
   const parsed = parseSendRecognitionInput(input);
   if (!parsed.ok) {
     return err("VALIDATION_ERROR", "Invalid recognition input.", {

@@ -4,6 +4,21 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState, useTransition } from "react";
 
 import { searchUsersAction } from "@/app/(app)/feed/actions";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Command,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type { UserSummary } from "@/lib/dal/current-user";
 
 type FeedFiltersProps = {
@@ -28,6 +43,7 @@ export function FeedFilters({
       : null,
   );
   const [suggestions, setSuggestions] = useState<UserSummary[]>([]);
+  const [userOpen, setUserOpen] = useState(false);
 
   const applyFilters = useCallback(
     (next: { hashtag?: string; userId?: string }) => {
@@ -46,12 +62,17 @@ export function FeedFilters({
 
   async function handleUserSearch(query: string) {
     setUserQuery(query);
+    setUserOpen(true);
     if (query.trim().length < 2) {
       setSuggestions([]);
+      setUserOpen(false);
       return;
     }
     const result = await searchUsersAction(query, 8);
-    if (result.ok) setSuggestions(result.data);
+    if (result.ok) {
+      setSuggestions(result.data);
+      setUserOpen(result.data.length > 0);
+    }
   }
 
   function handleHashtagSubmit(event: React.FormEvent) {
@@ -67,86 +88,110 @@ export function FeedFilters({
     setUserQuery("");
     setSelectedUser(null);
     setSuggestions([]);
+    setUserOpen(false);
     startTransition(() => router.push("/feed"));
   }
 
   const hasFilters = Boolean(initialHashtag || initialUserId);
 
   return (
-    <section aria-label="Feed filters" className="rounded-lg border border-border bg-white p-4">
-      <h2 className="mb-3 text-sm font-semibold">Filter feed</h2>
-      <form onSubmit={handleHashtagSubmit} className="flex flex-wrap items-end gap-3">
-        <div>
-          <label htmlFor="feed-hashtag" className="mb-1 block text-sm font-medium">
-            Hashtag
-          </label>
-          <input
-            id="feed-hashtag"
-            type="text"
-            value={hashtag}
-            disabled={isPending}
-            onChange={(e) => setHashtag(e.target.value)}
-            placeholder="teamwork"
-            className="rounded-md border border-border px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="relative min-w-[200px]">
-          <label htmlFor="feed-user" className="mb-1 block text-sm font-medium">
-            User
-          </label>
-          <input
-            id="feed-user"
-            type="search"
-            value={userQuery}
-            disabled={isPending}
-            onChange={(e) => {
-              void handleUserSearch(e.target.value);
-            }}
-            placeholder="Search colleagues…"
-            className="w-full rounded-md border border-border px-3 py-2 text-sm"
-            autoComplete="off"
-          />
-          {suggestions.length > 0 ? (
-            <ul
-              className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-border bg-white shadow-sm"
-              role="listbox"
-            >
-              {suggestions.map((user) => (
-                <li key={user.id}>
-                  <button
-                    type="button"
-                    className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
-                    onClick={() => {
-                      setSelectedUser(user);
-                      setUserQuery(user.name);
-                      setSuggestions([]);
-                    }}
-                  >
-                    {user.name} @{user.handle}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
-        >
-          Apply
-        </button>
-        {hasFilters ? (
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={clearFilters}
-            className="rounded-md border border-border px-4 py-2 text-sm hover:bg-muted disabled:opacity-50"
+    <section aria-label="Feed filters">
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle>
+            <h2>Filter feed</h2>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={handleHashtagSubmit}
+            className="grid gap-4 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end"
           >
-            Clear filters
-          </button>
-        ) : null}
-      </form>
+            <div className="space-y-1.5">
+              <Label htmlFor="feed-hashtag">Hashtag</Label>
+              <Input
+                id="feed-hashtag"
+                type="text"
+                value={hashtag}
+                disabled={isPending}
+                onChange={(e) => setHashtag(e.target.value)}
+                placeholder="teamwork"
+              />
+            </div>
+            <div className="min-w-0 space-y-1.5 lg:min-w-52">
+              <Label htmlFor="feed-user">User</Label>
+              <Popover
+                open={userOpen && !isPending && suggestions.length > 0}
+                onOpenChange={setUserOpen}
+              >
+                <PopoverTrigger
+                  nativeButton={false}
+                  render={
+                    <Input
+                      id="feed-user"
+                      type="search"
+                      value={userQuery}
+                      disabled={isPending}
+                      onFocus={() => setUserOpen(suggestions.length > 0)}
+                      onChange={(e) => {
+                        void handleUserSearch(e.target.value);
+                      }}
+                      placeholder="Search colleagues…"
+                      autoComplete="off"
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-expanded={userOpen && suggestions.length > 0}
+                    />
+                  }
+                />
+                <PopoverContent
+                  align="start"
+                  className="w-(--anchor-width) min-w-60 gap-0 p-0"
+                >
+                  <Command shouldFilter={false}>
+                    <CommandList>
+                      <CommandGroup>
+                        {suggestions.map((user) => (
+                          <CommandItem
+                            key={user.id}
+                            value={user.id}
+                            onSelect={() => {
+                              setSelectedUser(user);
+                              setUserQuery(user.name);
+                              setSuggestions([]);
+                              setUserOpen(false);
+                            }}
+                          >
+                            {user.name} @{user.handle}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <Button
+              type="submit"
+              disabled={isPending}
+              className="w-full sm:w-auto"
+            >
+              Apply
+            </Button>
+            {hasFilters ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isPending}
+                onClick={clearFilters}
+                className="w-full sm:w-auto"
+              >
+                Clear filters
+              </Button>
+            ) : null}
+          </form>
+        </CardContent>
+      </Card>
     </section>
   );
 }

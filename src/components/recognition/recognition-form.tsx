@@ -7,8 +7,15 @@ import { sendRecognitionAction } from "@/app/(app)/feed/actions";
 import { GifPicker } from "@/components/recognition/gif-picker";
 import { GifPreview } from "@/components/recognition/gif-preview";
 import { RecipientPicker } from "@/components/recognition/recipient-picker";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type { UserSummary } from "@/lib/dal/current-user";
 import { resolveGifUrl } from "@/lib/gif/curated";
+import { cn } from "@/lib/utils";
 
 type RecognitionFormProps = {
   onSuccess?: () => void;
@@ -140,169 +147,174 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-border bg-white p-5">
-        <h2 className="text-lg font-semibold">Send recognition</h2>
+    <Card size="sm">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <CardHeader>
+          <CardTitle>
+            <h2>Send recognition</h2>
+          </CardTitle>
+        </CardHeader>
 
-        <RecipientPicker
-          selected={recipients}
-          onChange={setRecipients}
-          disabled={pending}
-        />
-
-        <div>
-          <label htmlFor="points" className="mb-1 block text-sm font-medium">
-            Points per recipient
-          </label>
-          <input
-            id="points"
-            type="number"
-            min={1}
-            required
-            value={pointsPerRecipient}
+        <CardContent className="space-y-5">
+          <RecipientPicker
+            selected={recipients}
+            onChange={setRecipients}
             disabled={pending}
-            onChange={(e) => setPointsPerRecipient(e.target.value)}
-            className="w-full max-w-xs rounded-md border border-border px-3 py-2"
           />
-          {totalCost !== null ? (
-            <p className="mt-1 text-sm text-muted-foreground">
-              Total cost: {totalCost} giving points
-            </p>
-          ) : null}
-          {fieldErrors.pointsPerRecipient?.map((msg) => (
-            <p key={msg} className="text-sm text-destructive">
-              {msg}
-            </p>
-          ))}
-        </div>
 
-        <div>
-          <label htmlFor="text" className="mb-1 block text-sm font-medium">
-            Message
-          </label>
-          <textarea
-            id="text"
-            rows={3}
-            value={text}
-            disabled={pending}
-            onChange={(e) => setText(e.target.value)}
-            className="w-full rounded-md border border-border px-3 py-2"
-            placeholder="Thank you for…"
-          />
-          {fieldErrors.text?.map((msg) => (
-            <p key={msg} className="text-sm text-destructive">
-              {msg}
+          <div className="max-w-xs space-y-1.5">
+            <Label htmlFor="points">Points per recipient</Label>
+            <Input
+              id="points"
+              type="number"
+              min={1}
+              required
+              value={pointsPerRecipient}
+              disabled={pending}
+              aria-invalid={Boolean(fieldErrors.pointsPerRecipient)}
+              onChange={(e) => setPointsPerRecipient(e.target.value)}
+            />
+            <p className="text-muted-foreground text-sm">
+              Total cost:{" "}
+              {totalCost === null
+                ? "add a recipient to calculate"
+                : `${totalCost} giving points`}
             </p>
-          ))}
-        </div>
-
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            if (!pending) setDragActive(true);
-          }}
-          onDragLeave={() => setDragActive(false)}
-          onDrop={handleGifDrop}
-        >
-          <span className="mb-1 block text-sm font-medium">GIF (optional)</span>
-          <div
-            className={`rounded-md border border-dashed p-3 transition-colors ${
-              dragActive ? "border-primary bg-primary/5" : "border-border"
-            }`}
-          >
-            {gifUrl ? (
-              <div className="space-y-2">
-                <GifPreview gifUrl={gifUrl} />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setGifUrl("");
-                    setDropHint(null);
-                  }}
-                  disabled={pending}
-                  className="text-sm text-destructive underline"
-                >
-                  Remove GIF
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-start gap-2">
-                <p className="text-sm text-muted-foreground">
-                  Drag a GIF here, choose one, or paste a URL.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowGifPicker((open) => !open)}
-                  disabled={pending}
-                  aria-expanded={showGifPicker}
-                  className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
-                >
-                  {showGifPicker ? "Hide GIF picker" : "Choose a GIF"}
-                </button>
-              </div>
-            )}
+            {fieldErrors.pointsPerRecipient?.map((msg) => (
+              <p key={msg} className="text-destructive text-sm">
+                {msg}
+              </p>
+            ))}
           </div>
 
-          {showGifPicker && !gifUrl ? (
-            <GifPicker
-              onSelect={(url) => {
-                setGifUrl(url);
-                setShowGifPicker(false);
-                setDropHint(null);
-              }}
-              onClose={() => setShowGifPicker(false)}
+          <div className="space-y-1.5">
+            <Label htmlFor="text">Message</Label>
+            <Textarea
+              id="text"
+              rows={3}
+              value={text}
+              disabled={pending}
+              aria-invalid={Boolean(fieldErrors.text)}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Thank you for…"
             />
+            {fieldErrors.text?.map((msg) => (
+              <p key={msg} className="text-destructive text-sm">
+                {msg}
+              </p>
+            ))}
+          </div>
+
+          <div
+            className="space-y-1.5"
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!pending) setDragActive(true);
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={handleGifDrop}
+          >
+            <Label htmlFor="gifUrl">GIF (optional)</Label>
+            <div
+              className={cn(
+                "rounded-md border border-dashed p-3 transition-colors",
+                dragActive ? "border-primary bg-primary/5" : "border-border",
+              )}
+            >
+              {gifUrl ? (
+                <div className="space-y-2">
+                  <GifPreview gifUrl={gifUrl} />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setGifUrl("");
+                      setDropHint(null);
+                    }}
+                    disabled={pending}
+                  >
+                    Remove GIF
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-start gap-2">
+                  <p className="text-muted-foreground text-sm">
+                    Drag a GIF here, choose one, or paste a URL.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowGifPicker((open) => !open)}
+                    disabled={pending}
+                    aria-expanded={showGifPicker}
+                  >
+                    {showGifPicker ? "Hide GIF picker" : "Choose a GIF"}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {showGifPicker && !gifUrl ? (
+              <GifPicker
+                onSelect={(url) => {
+                  setGifUrl(url);
+                  setShowGifPicker(false);
+                  setDropHint(null);
+                }}
+                onClose={() => setShowGifPicker(false)}
+              />
+            ) : null}
+
+            <Input
+              id="gifUrl"
+              type="url"
+              value={gifUrl}
+              disabled={pending}
+              aria-invalid={Boolean(fieldErrors.gifUrl)}
+              onChange={(e) => setGifUrl(e.target.value)}
+              placeholder="https://media.giphy.com/..."
+              aria-label="GIF URL"
+            />
+
+            {dropHint ? (
+              <p className="text-muted-foreground text-sm">{dropHint}</p>
+            ) : null}
+            {fieldErrors.gifUrl?.map((msg) => (
+              <p key={msg} className="text-destructive text-sm">
+                {msg}
+              </p>
+            ))}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="hashtags">Hashtags</Label>
+            <Input
+              id="hashtags"
+              type="text"
+              value={hashtagsInput}
+              disabled={pending}
+              onChange={(e) => setHashtagsInput(e.target.value)}
+              placeholder="#teamwork #kudos"
+            />
+          </div>
+
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           ) : null}
 
-          <input
-            type="url"
-            value={gifUrl}
-            disabled={pending}
-            onChange={(e) => setGifUrl(e.target.value)}
-            placeholder="https://media.giphy.com/..."
-            aria-label="GIF URL"
-            className="mt-2 w-full rounded-md border border-border px-3 py-2"
-          />
-
-          {dropHint ? (
-            <p className="text-sm text-muted-foreground">{dropHint}</p>
-          ) : null}
-          {fieldErrors.gifUrl?.map((msg) => (
-            <p key={msg} className="text-sm text-destructive">
-              {msg}
-            </p>
-          ))}
-        </div>
-
-        <div>
-          <label htmlFor="hashtags" className="mb-1 block text-sm font-medium">
-            Hashtags
-          </label>
-          <input
-            id="hashtags"
-            type="text"
-            value={hashtagsInput}
-            disabled={pending}
-            onChange={(e) => setHashtagsInput(e.target.value)}
-            placeholder="#teamwork #kudos"
-            className="w-full rounded-md border border-border px-3 py-2"
-          />
-        </div>
-
-        {error ? (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
-
-        <button
-          type="submit"
-          disabled={pending || recipients.length === 0}
-          className="rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
-        >
-          {pending ? "Sending…" : "Send recognition"}
-        </button>
+          <Button
+            type="submit"
+            disabled={pending || recipients.length === 0}
+            className="w-full sm:w-auto"
+          >
+            {pending ? "Sending…" : "Send recognition"}
+          </Button>
+        </CardContent>
       </form>
-    </div>
+    </Card>
   );
 }

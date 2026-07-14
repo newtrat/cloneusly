@@ -3,6 +3,17 @@
 import { useState } from "react";
 
 import { convertReceivedPointsAction } from "@/app/(app)/settings/points/actions";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type ConversionFormProps = {
   receivedBalance: number;
@@ -48,54 +59,59 @@ export function ConversionForm({
   }
 
   return (
-    <form
-      onSubmit={(e) => void handleSubmit(e)}
-      className="rounded-lg border border-border bg-white p-5"
-      aria-labelledby="conversion-heading"
-    >
-      <h2 id="conversion-heading" className="text-lg font-semibold">
-        Convert received points
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Move points one-to-one from received to giving. You have{" "}
-        <strong>{receivedBalance}</strong> received points available.
-      </p>
-
-      <div className="mt-4">
-        <label htmlFor="convert-amount" className="mb-1 block text-sm font-medium">
-          Amount to convert
-        </label>
-        <input
-          id="convert-amount"
-          type="number"
-          min={1}
-          max={receivedBalance}
-          required
-          value={amount}
-          disabled={pending || receivedBalance === 0}
-          onChange={(e) => setAmount(e.target.value)}
-          className="w-full max-w-xs rounded-md border border-border px-3 py-2"
-        />
-      </div>
-
-      {error ? (
-        <p role="alert" className="mt-2 text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
-      {success ? (
-        <p role="status" className="mt-2 text-sm text-green-700">
-          {success}
-        </p>
-      ) : null}
-
-      <button
-        type="submit"
-        disabled={pending || receivedBalance === 0}
-        className="mt-4 rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
+    <Card size="sm">
+      <form
+        onSubmit={(e) => void handleSubmit(e)}
+        className="space-y-6"
+        aria-labelledby="conversion-heading"
       >
-        {pending ? "Converting…" : "Convert points"}
-      </button>
-    </form>
+        <CardHeader>
+          <CardTitle>
+            <h2 id="conversion-heading">Convert received points</h2>
+          </CardTitle>
+          <CardDescription>
+            Move points one-to-one from received to giving. You have{" "}
+            <strong>{receivedBalance}</strong> received points available.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <div className="max-w-xs space-y-1.5">
+            <Label htmlFor="convert-amount">Amount to convert</Label>
+            <Input
+              id="convert-amount"
+              type="number"
+              min={1}
+              max={receivedBalance}
+              required
+              value={amount}
+              disabled={pending || receivedBalance === 0}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+          {success ? (
+            <Alert role="status">
+              <AlertDescription className="text-green-700">
+                {success}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          <Button
+            type="submit"
+            disabled={pending || receivedBalance === 0}
+            className="w-full sm:w-auto"
+          >
+            {pending ? "Converting…" : "Convert points"}
+          </Button>
+        </CardContent>
+      </form>
+    </Card>
   );
 }
