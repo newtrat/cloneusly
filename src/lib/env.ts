@@ -31,11 +31,6 @@ const envSchema = z.object({
   SEED_USER_PASSWORD: z.string().min(8).optional(),
   SLACK_SIGNING_SECRET: optionalSecret,
   SLACK_BOT_TOKEN: optionalSecret,
-  RESEND_API_KEY: optionalSecret,
-  EMAIL_FROM: z
-    .string()
-    .min(1)
-    .default("Cloneusly <onboarding@resend.dev>"),
   ALLOWED_SIGNUP_EMAIL_DOMAIN: z
     .string()
     .default("therealreal.com")

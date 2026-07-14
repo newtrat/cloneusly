@@ -18,7 +18,7 @@ export type ErrorCode =
   | "ACCOUNT_NOT_FOUND"
   | "PASSWORD_ALREADY_SET"
   | "EMAIL_DOMAIN_NOT_ALLOWED"
-  | "INVALID_OR_EXPIRED_TOKEN"
+  | "INVALID_OR_EXPIRED_CODE"
   | "INTERNAL_ERROR";
 
 export type CommandError = {

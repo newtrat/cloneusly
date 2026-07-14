@@ -34,10 +34,18 @@ export function parseRequestFirstAccessInput(
   return { ok: true, data: parsed.data };
 }
 
-// The email is never trusted from the client here: it is derived from the
-// signed verification token, so only a `token` and the new `password` are taken.
+// Email ownership is proven by the one-time code delivered over Slack DM, so
+// the email + code are verified together before a password can be set.
 export const setFirstPasswordInputSchema = z.object({
-  token: z.string().trim().min(1, "Verification token is required"),
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required")
+    .email("Invalid email address"),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, "Enter the 6-digit code sent to you on Slack"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 

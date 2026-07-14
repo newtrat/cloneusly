@@ -164,21 +164,23 @@ Options:
 - `--inactive` provisions the account as `INACTIVE`.
 - `--help` prints full usage.
 
-### Self-service first access (email-verified)
+### Self-service first access (Slack-verified)
 
 Colleagues can activate their own account without the CLI. On `/first-access`
 they enter their work email; if it belongs to the allowed company domain
 (`ALLOWED_SIGNUP_EMAIL_DOMAIN`, default `therealreal.com`) and maps to an
-eligible account, they receive a signed, time-boxed verification link. Only by
-following that link — proving they own the email — can they set a password.
-This closes the account-takeover gap where anyone could set a password for
-another person's email.
+eligible account, a one-time 6-digit code is sent to them over Slack DM. They
+enter that code plus a new password to finish. Because the code is delivered to
+the matching Slack user, this proves email ownership and closes the
+account-takeover gap where anyone could set a password for another person's
+email.
 
-- Email domain is enforced on both the link request and the password step.
-- The password step is gated by a signed token; the email is taken from the
-  token, never from the client.
-- Verification email is sent via Resend when `RESEND_API_KEY` is set; otherwise
-  the link is logged to the server console (dev fallback).
+- Email domain is enforced on both the code request and the password step.
+- The 6-digit code is stored hashed (HMAC) with a 15-minute expiry and is
+  single-use; the password step requires a matching code for that email.
+- The code is delivered over Slack DM (`SLACK_BOT_TOKEN`). When Slack is not
+  configured, the code is logged to the server console (dev fallback).
+- Requesting a code always returns a generic response (no account enumeration).
 - New accounts receive the current month's giving allowance on activation
   (idempotent with the monthly-grant cron).
 
