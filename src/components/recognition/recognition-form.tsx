@@ -65,13 +65,23 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
     event.preventDefault();
     setDragActive(false);
     if (pending) return;
+
     const url = extractGifUrlFromDrop(event.dataTransfer);
     if (url) {
       setGifUrl(url);
       setDropHint(null);
       setShowGifPicker(false);
+      return;
+    }
+
+    if (event.dataTransfer.files.length > 0) {
+      setDropHint(
+        "Uploading local files isn’t supported. Use “Choose a GIF”, or drag a GIF from a website like Giphy.",
+      );
     } else {
-      setDropHint("Drop a GIF image or paste its URL below.");
+      setDropHint(
+        "Couldn’t read a GIF from that. Drag the GIF image itself from a site like Giphy, or paste its URL below.",
+      );
     }
   }
 
@@ -186,15 +196,16 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
           ))}
         </div>
 
-        <div>
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (!pending) setDragActive(true);
+          }}
+          onDragLeave={() => setDragActive(false)}
+          onDrop={handleGifDrop}
+        >
           <span className="mb-1 block text-sm font-medium">GIF (optional)</span>
           <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              if (!pending) setDragActive(true);
-            }}
-            onDragLeave={() => setDragActive(false)}
-            onDrop={handleGifDrop}
             className={`rounded-md border border-dashed p-3 transition-colors ${
               dragActive ? "border-primary bg-primary/5" : "border-border"
             }`}
