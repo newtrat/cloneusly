@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -8,8 +9,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { signIn } from "@/lib/auth/client";
+import {
+  AUTO_SIGN_IN_FAILED_MESSAGE,
+  signInAfterFirstAccess,
+} from "@/lib/auth/sign-in-after-first-access";
 
 type Step = "request" | "verify";
+type Status = "idle" | "requesting" | "setting" | "signing-in";
 
 export function FirstAccessForm({ defaultEmail = "" }: { defaultEmail?: string }) {
   const router = useRouter();
@@ -19,20 +26,23 @@ export function FirstAccessForm({ defaultEmail = "" }: { defaultEmail?: string }
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const [status, setStatus] = useState<Status>("idle");
+  const pending = status !== "idle";
 
   async function handleRequest(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
-    setPending(true);
-    const result = await requestFirstAccessLinkAction({ email: email.trim() });
-    setPending(false);
-
-    if (!result.ok) {
-      setError(result.error.message);
-      return;
+    setStatus("requesting");
+    try {
+      const result = await requestFirstAccessLinkAction({ email: email.trim() });
+      if (!result.ok) {
+        setError(result.error.message);
+        return;
+      }
+      setStep("verify");
+    } finally {
+      setStatus("idle");
     }
-    setStep("verify");
   }
 
   async function handleVerify(event: React.FormEvent) {
@@ -44,20 +54,35 @@ export function FirstAccessForm({ defaultEmail = "" }: { defaultEmail?: string }
       return;
     }
 
-    setPending(true);
-    const result = await setFirstPasswordAction({
-      email: email.trim(),
-      code: code.trim(),
-      password,
-    });
-    setPending(false);
+    setStatus("setting");
+    try {
+      const result = await setFirstPasswordAction({
+        email: email.trim(),
+        code: code.trim(),
+        password,
+      });
 
-    if (!result.ok) {
-      setError(result.error.message);
-      return;
+      if (!result.ok) {
+        setError(result.error.message);
+        return;
+      }
+
+      setStatus("signing-in");
+      const outcome = await signInAfterFirstAccess(signIn.email, {
+        email: email.trim(),
+        password,
+      });
+
+      if (outcome === "sign-in-failed") {
+        setError(AUTO_SIGN_IN_FAILED_MESSAGE);
+        return;
+      }
+
+      router.push("/feed");
+      router.refresh();
+    } finally {
+      setStatus("idle");
     }
-
-    router.push("/login?firstAccess=success");
   }
 
   if (step === "verify") {
@@ -110,11 +135,28 @@ export function FirstAccessForm({ defaultEmail = "" }: { defaultEmail?: string }
         </div>
         {error ? (
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>
+              {error}
+              {error === AUTO_SIGN_IN_FAILED_MESSAGE ? (
+                <>
+                  {" "}
+                  <Link
+                    href="/login?firstAccess=success"
+                    className="underline underline-offset-4"
+                  >
+                    Sign in
+                  </Link>
+                </>
+              ) : null}
+            </AlertDescription>
           </Alert>
         ) : null}
         <Button type="submit" disabled={pending} className="w-full">
-          {pending ? "Setting password…" : "Set password"}
+          {status === "setting"
+            ? "Setting password…"
+            : status === "signing-in"
+              ? "Signing in…"
+              : "Set password"}
         </Button>
         <Button
           type="button"
@@ -152,7 +194,7 @@ export function FirstAccessForm({ defaultEmail = "" }: { defaultEmail?: string }
         </Alert>
       ) : null}
       <Button type="submit" disabled={pending} className="w-full">
-        {pending ? "Sending…" : "Send Slack code"}
+        {status === "requesting" ? "Sending…" : "Send Slack code"}
       </Button>
     </form>
   );
