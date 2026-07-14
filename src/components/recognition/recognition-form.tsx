@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { sendRecognitionAction } from "@/app/(app)/feed/actions";
+import { GifPicker } from "@/components/recognition/gif-picker";
+import { GifPreview } from "@/components/recognition/gif-preview";
 import { RecipientPicker } from "@/components/recognition/recipient-picker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -12,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { UserSummary } from "@/lib/dal/current-user";
+import { resolveGifUrl } from "@/lib/gif/curated";
+import { cn } from "@/lib/utils";
 
 type RecognitionFormProps = {
   onSuccess?: () => void;
@@ -19,6 +23,35 @@ type RecognitionFormProps = {
 
 function createRequestId(): string {
   return crypto.randomUUID();
+}
+
+function extractGifUrlFromDrop(dataTransfer: DataTransfer): string | null {
+  const candidates: string[] = [];
+
+  const uriList = dataTransfer.getData("text/uri-list");
+  if (uriList) {
+    for (const line of uriList.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith("#")) candidates.push(trimmed);
+    }
+  }
+
+  const plain = dataTransfer.getData("text/plain");
+  if (plain) candidates.push(plain.trim());
+
+  const html = dataTransfer.getData("text/html");
+  if (html) {
+    const img = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+    if (img) candidates.push(img[1].trim());
+    const href = html.match(/<a[^>]+href=["']([^"']+)["']/i);
+    if (href) candidates.push(href[1].trim());
+  }
+
+  for (const candidate of candidates) {
+    const resolved = resolveGifUrl(candidate);
+    if (resolved) return resolved;
+  }
+  return null;
 }
 
 export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
@@ -31,6 +64,33 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [dropHint, setDropHint] = useState<string | null>(null);
+
+  function handleGifDrop(event: React.DragEvent) {
+    event.preventDefault();
+    setDragActive(false);
+    if (pending) return;
+
+    const url = extractGifUrlFromDrop(event.dataTransfer);
+    if (url) {
+      setGifUrl(url);
+      setDropHint(null);
+      setShowGifPicker(false);
+      return;
+    }
+
+    if (event.dataTransfer.files.length > 0) {
+      setDropHint(
+        "Uploading local files isn’t supported. Use “Choose a GIF”, or drag a GIF from a website like Giphy.",
+      );
+    } else {
+      setDropHint(
+        "Couldn’t read a GIF from that. Drag the GIF image itself from a site like Giphy, or paste its URL below.",
+      );
+    }
+  }
 
   const points = Number(pointsPerRecipient);
   const totalCost = useMemo(() => {
@@ -51,12 +111,17 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
       .map((t) => t.trim())
       .filter(Boolean);
 
+    const trimmedGifUrl = gifUrl.trim();
+    const gifUrlToSend = trimmedGifUrl
+      ? (resolveGifUrl(trimmedGifUrl) ?? trimmedGifUrl)
+      : undefined;
+
     const result = await sendRecognitionAction({
       requestId: createRequestId(),
       recipientIds: recipients.map((r) => r.id),
       pointsPerRecipient: points,
       text: text.trim() || undefined,
-      gifUrl: gifUrl.trim() || undefined,
+      gifUrl: gifUrlToSend,
       hashtags,
     });
 
@@ -77,6 +142,8 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
     setText("");
     setGifUrl("");
     setHashtagsInput("");
+    setShowGifPicker(false);
+    setDropHint(null);
   }
 
   return (
@@ -138,8 +205,68 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
             ))}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="gifUrl">GIF URL (optional)</Label>
+          <div
+            className="space-y-1.5"
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!pending) setDragActive(true);
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={handleGifDrop}
+          >
+            <Label htmlFor="gifUrl">GIF (optional)</Label>
+            <div
+              className={cn(
+                "rounded-md border border-dashed p-3 transition-colors",
+                dragActive ? "border-primary bg-primary/5" : "border-border",
+              )}
+            >
+              {gifUrl ? (
+                <div className="space-y-2">
+                  <GifPreview gifUrl={gifUrl} />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setGifUrl("");
+                      setDropHint(null);
+                    }}
+                    disabled={pending}
+                  >
+                    Remove GIF
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-start gap-2">
+                  <p className="text-muted-foreground text-sm">
+                    Drag a GIF here, choose one, or paste a URL.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowGifPicker((open) => !open)}
+                    disabled={pending}
+                    aria-expanded={showGifPicker}
+                  >
+                    {showGifPicker ? "Hide GIF picker" : "Choose a GIF"}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {showGifPicker && !gifUrl ? (
+              <GifPicker
+                onSelect={(url) => {
+                  setGifUrl(url);
+                  setShowGifPicker(false);
+                  setDropHint(null);
+                }}
+                onClose={() => setShowGifPicker(false)}
+              />
+            ) : null}
+
             <Input
               id="gifUrl"
               type="url"
@@ -148,7 +275,12 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
               aria-invalid={Boolean(fieldErrors.gifUrl)}
               onChange={(e) => setGifUrl(e.target.value)}
               placeholder="https://media.giphy.com/..."
+              aria-label="GIF URL"
             />
+
+            {dropHint ? (
+              <p className="text-muted-foreground text-sm">{dropHint}</p>
+            ) : null}
             {fieldErrors.gifUrl?.map((msg) => (
               <p key={msg} className="text-destructive text-sm">
                 {msg}
