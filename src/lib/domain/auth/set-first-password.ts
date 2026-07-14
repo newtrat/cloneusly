@@ -3,6 +3,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { hashPassword } from "better-auth/crypto";
 
+import { verifyFirstAccessToken } from "@/lib/domain/auth/first-access-token";
 import { createCorrelationId, logOperation } from "@/lib/domain/logger";
 import { err, ok, type CommandResult } from "@/lib/domain/result";
 import {
@@ -11,6 +12,7 @@ import {
   provisionUserFromSlackProfile,
 } from "@/lib/domain/users/provision-slack-user";
 import { prisma } from "@/lib/prisma";
+import { isAllowedCompanyEmail } from "@/lib/validation/email-domain";
 import { parseSetFirstPasswordInput } from "@/lib/validation/auth";
 
 export type SetFirstPasswordData = {
@@ -30,7 +32,26 @@ export async function setFirstPassword(
     });
   }
 
-  const email = parsed.data.email.trim().toLowerCase();
+  // The email is taken from the signed verification token, never the client, so
+  // a caller must have received the verification email for this address.
+  const verified = verifyFirstAccessToken(parsed.data.token);
+  if (!verified) {
+    return err(
+      "INVALID_OR_EXPIRED_TOKEN",
+      "This verification link is invalid or has expired. Request a new one.",
+      { correlationId },
+    );
+  }
+
+  const email = verified.email.trim().toLowerCase();
+
+  if (!isAllowedCompanyEmail(email)) {
+    return err(
+      "EMAIL_DOMAIN_NOT_ALLOWED",
+      "This email domain is not allowed.",
+      { correlationId },
+    );
+  }
 
   const existing = await findUserByEmailAnyStatus(email);
 

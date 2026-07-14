@@ -3,19 +3,70 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { setFirstPasswordAction } from "./actions";
+import { requestFirstAccessLinkAction, setFirstPasswordAction } from "./actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function FirstAccessForm({
-  defaultEmail = "",
-}: {
-  defaultEmail?: string;
-}) {
-  const router = useRouter();
+function RequestLinkForm({ defaultEmail = "" }: { defaultEmail?: string }) {
   const [email, setEmail] = useState(defaultEmail);
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+  const [pending, setPending] = useState(false);
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setPending(true);
+    const result = await requestFirstAccessLinkAction({ email: email.trim() });
+    setPending(false);
+
+    if (!result.ok) {
+      setError(result.error.message);
+      return;
+    }
+    setSent(true);
+  }
+
+  if (sent) {
+    return (
+      <Alert>
+        <AlertDescription>
+          If that email belongs to a Cloneusly account, we sent a verification
+          link. Check your inbox and follow the link to set your password.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="space-y-1.5">
+        <Label htmlFor="email">Work email</Label>
+        <Input
+          id="email"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </div>
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+      <Button type="submit" disabled={pending} className="w-full">
+        {pending ? "Sending…" : "Send verification link"}
+      </Button>
+    </form>
+  );
+}
+
+function SetPasswordForm({ token }: { token: string }) {
+  const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -31,10 +82,7 @@ export function FirstAccessForm({
     }
 
     setPending(true);
-    const result = await setFirstPasswordAction({
-      email: email.trim(),
-      password,
-    });
+    const result = await setFirstPasswordAction({ token, password });
     setPending(false);
 
     if (!result.ok) {
@@ -47,17 +95,6 @@ export function FirstAccessForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="space-y-1.5">
-        <Label htmlFor="email">Email</Label>
-        <Input
-          id="email"
-          type="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      </div>
       <div className="space-y-1.5">
         <Label htmlFor="password">New password</Label>
         <Input
@@ -92,4 +129,17 @@ export function FirstAccessForm({
       </Button>
     </form>
   );
+}
+
+export function FirstAccessForm({
+  defaultEmail = "",
+  token,
+}: {
+  defaultEmail?: string;
+  token?: string;
+}) {
+  if (token) {
+    return <SetPasswordForm token={token} />;
+  }
+  return <RequestLinkForm defaultEmail={defaultEmail} />;
 }

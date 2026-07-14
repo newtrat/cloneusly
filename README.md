@@ -164,6 +164,24 @@ Options:
 - `--inactive` provisions the account as `INACTIVE`.
 - `--help` prints full usage.
 
+### Self-service first access (email-verified)
+
+Colleagues can activate their own account without the CLI. On `/first-access`
+they enter their work email; if it belongs to the allowed company domain
+(`ALLOWED_SIGNUP_EMAIL_DOMAIN`, default `therealreal.com`) and maps to an
+eligible account, they receive a signed, time-boxed verification link. Only by
+following that link — proving they own the email — can they set a password.
+This closes the account-takeover gap where anyone could set a password for
+another person's email.
+
+- Email domain is enforced on both the link request and the password step.
+- The password step is gated by a signed token; the email is taken from the
+  token, never from the client.
+- Verification email is sent via Resend when `RESEND_API_KEY` is set; otherwise
+  the link is logged to the server console (dev fallback).
+- New accounts receive the current month's giving allowance on activation
+  (idempotent with the monthly-grant cron).
+
 ## Verification
 
 ```bash
@@ -192,7 +210,7 @@ explicit `BETTER_AUTH_URL`.
 ## Architecture
 
 - **UI**: Server Components and client forms under `src/app` and `src/components`
-- **Auth**: Better Auth with Prisma adapter, database sessions, email/password login, public signup disabled
+- **Auth**: Better Auth with Prisma adapter, database sessions, email/password login; account activation via email-verified, domain-restricted first access
 - **Domain**: Server-only modules in `src/lib/domain` own point transactions, idempotency, and retries
 - **Data**: Prisma schema in `prisma/schema.prisma`; reviewed constraints in `prisma/migrations/0001_foundation/migration.sql`
 
