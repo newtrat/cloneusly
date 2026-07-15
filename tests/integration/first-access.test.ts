@@ -146,25 +146,36 @@ describe.skipIf(!hasDatabase)("setFirstPassword integration", () => {
     expect(lookupByEmail).not.toHaveBeenCalled();
   });
 
-  it("rejects a user who already has a password set", async () => {
+  it("resets the password for a user who already has one", async () => {
     const email = "already-set@therealreal.com";
-    await createActiveUser({
+    const user = await createActiveUser({
       email,
       handle: "alreadyset",
       name: "Already Set",
+    });
+    const prisma = getTestPrisma();
+    const before = await prisma.account.findFirstOrThrow({
+      where: { userId: user.id, providerId: "credential" },
+      select: { id: true, password: true },
     });
 
     await storeVerificationCode(email, CODE);
     const result = await setFirstPassword({
       email,
       code: CODE,
-      password: "a-strong-password",
+      password: "a-brand-new-password",
     });
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe("PASSWORD_ALREADY_SET");
-    }
+    expect(result.ok).toBe(true);
+
+    // The credential is updated in place (same row, new hash), not duplicated.
+    const after = await prisma.account.findMany({
+      where: { userId: user.id, providerId: "credential" },
+      select: { id: true, password: true },
+    });
+    expect(after).toHaveLength(1);
+    expect(after[0].id).toBe(before.id);
+    expect(after[0].password).not.toBe(before.password);
   });
 
   it("sets the password for an existing user with no credential account yet", async () => {
