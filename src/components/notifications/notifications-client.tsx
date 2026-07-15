@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import {
@@ -29,6 +30,7 @@ export function NotificationsClient({
   initialItems,
   initialCursor,
 }: NotificationsClientProps) {
+  const router = useRouter();
   const [items, setItems] = useState(initialItems);
   const [cursor, setCursor] = useState(initialCursor);
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -53,6 +55,23 @@ export function NotificationsClient({
       setItems((prev) => [...prev, ...result.data.items]);
       setCursor(result.data.nextCursor);
     }
+  }
+
+  function viewRecognition(item: NotificationView) {
+    // Opening the recognition marks the notification read (optimistically here,
+    // persisted best-effort on the server), then deep-links to the feed card.
+    if (item.readAt === null) {
+      setItems((prev) =>
+        prev.map((n) =>
+          n.id === item.id ? { ...n, readAt: new Date().toISOString() } : n,
+        ),
+      );
+      void markNotificationsReadAction({
+        mode: "selected",
+        notificationIds: [item.id],
+      });
+    }
+    router.push(`/feed#recognition-${item.recognitionId}-heading`);
   }
 
   function toggleSelect(id: string) {
@@ -178,9 +197,13 @@ export function NotificationsClient({
                     {TYPE_LABELS[item.type]}
                   </p>
                   <p className="text-muted-foreground mt-1 text-sm">
-                    <Link href="/feed" className="hover:text-primary">
+                    <button
+                      type="button"
+                      onClick={() => viewRecognition(item)}
+                      className="hover:text-primary underline-offset-2 hover:underline"
+                    >
                       View recognition
-                    </Link>
+                    </button>
                     <span aria-hidden="true"> · </span>
                     <span className="block min-[440px]:inline">
                       {new Date(item.createdAt).toLocaleString()}
