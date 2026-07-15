@@ -53,6 +53,21 @@ describe("formatRecognitionChannelMessage", () => {
     expect(out.text).toContain("great work");
   });
 
+  it("adds an image block for an attached GIF", () => {
+    const out = formatRecognitionChannelMessage({
+      senderName: "Alice",
+      recipientNames: ["Bob"],
+      pointsPerRecipient: 5,
+      recognitionText: "nice",
+      gifUrl: "https://media.giphy.com/media/abc/giphy.gif",
+    });
+    const imageBlock = out.blocks.find((b) => b.type === "image");
+    expect(imageBlock).toBeDefined();
+    expect(imageBlock?.image_url).toBe(
+      "https://media.giphy.com/media/abc/giphy.gif",
+    );
+  });
+
   it("escapes Slack mrkdwn special characters", () => {
     const out = formatRecognitionChannelMessage({
       senderName: "A & B <team>",

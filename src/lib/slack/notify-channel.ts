@@ -13,6 +13,7 @@ export type PostRecognitionToChannelInput = {
   pointsPerRecipient: number;
   recognitionText: string | null | undefined;
   hashtags?: string[];
+  gifUrl?: string | null;
   recognitionId: string;
   recipientIds: string[];
   correlationId?: string;
@@ -64,6 +65,7 @@ export async function postRecognitionToChannel(
     pointsPerRecipient: input.pointsPerRecipient,
     recognitionText: input.recognitionText,
     hashtags: input.hashtags,
+    gifUrl: input.gifUrl,
     feedUrl: feedUrl(),
   });
 

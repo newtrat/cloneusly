@@ -5,6 +5,8 @@ export type FormatRecognitionDMInput = {
   pointsPerRecipient: number;
   // Message body attached to the recognition. Trimmed, may be null/empty.
   recognitionText: string | null | undefined;
+  // Optional GIF attached to the recognition (allowlisted https URL).
+  gifUrl?: string | null;
   // Absolute URL to the recognition feed in the web app, or null when unknown.
   feedUrl?: string | null;
 };
@@ -54,6 +56,15 @@ export function formatRecognitionDM(
     blocks.push({
       type: "section",
       text: { type: "mrkdwn", text: quoted },
+    });
+  }
+
+  const gifUrl = input.gifUrl?.trim();
+  if (gifUrl) {
+    blocks.push({
+      type: "image",
+      image_url: gifUrl,
+      alt_text: "recognition GIF",
     });
   }
 

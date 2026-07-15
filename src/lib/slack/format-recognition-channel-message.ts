@@ -6,6 +6,7 @@ export type FormatRecognitionChannelInput = {
   pointsPerRecipient: number;
   recognitionText: string | null | undefined;
   hashtags?: string[];
+  gifUrl?: string | null;
   feedUrl?: string | null;
 };
 
@@ -64,6 +65,15 @@ export function formatRecognitionChannelMessage(
       .map((line) => `> ${escapeMrkdwn(line)}`)
       .join("\n");
     blocks.push({ type: "section", text: { type: "mrkdwn", text: quoted } });
+  }
+
+  const gifUrl = input.gifUrl?.trim();
+  if (gifUrl) {
+    blocks.push({
+      type: "image",
+      image_url: gifUrl,
+      alt_text: "recognition GIF",
+    });
   }
 
   const contextParts: string[] = [];
