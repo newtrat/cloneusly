@@ -63,7 +63,7 @@ export function LeaderboardFilters({
               aria-selected={period === p.value}
               disabled={isPending}
               onClick={() => setPeriod(p.value)}
-              variant={period === p.value ? "secondary" : "ghost"}
+              variant={period === p.value ? "default" : "ghost"}
               size="sm"
               className="px-2 sm:px-4"
             >
