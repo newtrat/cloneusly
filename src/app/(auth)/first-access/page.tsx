@@ -32,8 +32,8 @@ export default async function FirstAccessPage({
             <h1 id="first-access-heading">Set up your Cloneusly account</h1>
           </CardTitle>
           <CardDescription>
-            If you were added via Slack but haven&apos;t signed in before,
-            enter your email to set a password.
+            Enter your work email and we&apos;ll send a verification code to you
+            on Slack to set your password.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">

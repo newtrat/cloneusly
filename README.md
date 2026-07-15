@@ -164,6 +164,26 @@ Options:
 - `--inactive` provisions the account as `INACTIVE`.
 - `--help` prints full usage.
 
+### Self-service first access (Slack-verified)
+
+Colleagues can activate their own account without the CLI. On `/first-access`
+they enter their work email; if it belongs to the allowed company domain
+(`ALLOWED_SIGNUP_EMAIL_DOMAIN`, default `therealreal.com`) and maps to an
+eligible account, a one-time 6-digit code is sent to them over Slack DM. They
+enter that code plus a new password to finish. Because the code is delivered to
+the matching Slack user, this proves email ownership and closes the
+account-takeover gap where anyone could set a password for another person's
+email.
+
+- Email domain is enforced on both the code request and the password step.
+- The 6-digit code is stored hashed (HMAC) with a 15-minute expiry and is
+  single-use; the password step requires a matching code for that email.
+- The code is delivered over Slack DM (`SLACK_BOT_TOKEN`). When Slack is not
+  configured, the code is logged to the server console (dev fallback).
+- Requesting a code always returns a generic response (no account enumeration).
+- New accounts receive the current month's giving allowance on activation
+  (idempotent with the monthly-grant cron).
+
 ## Verification
 
 ```bash
@@ -192,7 +212,7 @@ explicit `BETTER_AUTH_URL`.
 ## Architecture
 
 - **UI**: Server Components and client forms under `src/app` and `src/components`
-- **Auth**: Better Auth with Prisma adapter, database sessions, email/password login, public signup disabled
+- **Auth**: Better Auth with Prisma adapter, database sessions, email/password login; account activation via email-verified, domain-restricted first access
 - **Domain**: Server-only modules in `src/lib/domain` own point transactions, idempotency, and retries
 - **Data**: Prisma schema in `prisma/schema.prisma`; reviewed constraints in `prisma/migrations/0001_foundation/migration.sql`
 
