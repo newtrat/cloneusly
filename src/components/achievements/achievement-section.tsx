@@ -166,7 +166,7 @@ function AchievementTiersDialog({
               type="button"
               role="tab"
               aria-selected={period === value}
-              variant={period === value ? "secondary" : "ghost"}
+              variant={period === value ? "default" : "ghost"}
               size="sm"
               onClick={() => setPeriod(value)}
             >
@@ -297,7 +297,7 @@ export function AchievementSection({ data }: AchievementSectionProps) {
                 role="tab"
                 aria-selected={data.period === period}
                 disabled={isPending}
-                variant={data.period === period ? "secondary" : "ghost"}
+                variant={data.period === period ? "default" : "ghost"}
                 size="sm"
                 onClick={() => updateSelection({ achievementPeriod: period })}
               >
@@ -371,7 +371,7 @@ export function AchievementSection({ data }: AchievementSectionProps) {
               role="tab"
               aria-selected={data.metric === metric}
               disabled={isPending}
-              variant={data.metric === metric ? "secondary" : "ghost"}
+              variant={data.metric === metric ? "default" : "ghost"}
               size="sm"
               onClick={() => updateSelection({ metric })}
             >

@@ -8,6 +8,7 @@ vi.mock("@/lib/slack/client", () => ({
   }),
 }));
 
+import { storeVerificationCode } from "@/lib/domain/auth/first-access-code";
 import { setFirstPassword } from "@/lib/domain/auth/set-first-password";
 import {
   disconnectTestDatabase,
@@ -18,6 +19,8 @@ import {
 import { createActiveUser } from "../fixtures/factories";
 
 const hasDatabase = Boolean(getTestDatabaseUrl());
+
+const CODE = "123456";
 
 describe.skipIf(!hasDatabase)("setFirstPassword integration", () => {
   beforeAll(async () => {
@@ -43,17 +46,18 @@ describe.skipIf(!hasDatabase)("setFirstPassword integration", () => {
       },
     });
 
+    const email = "new.person@therealreal.com";
+    await storeVerificationCode(email, CODE);
     const result = await setFirstPassword({
-      email: "new.person@test.local",
+      email,
+      code: CODE,
       password: "a-strong-password",
     });
 
     expect(result.ok).toBe(true);
 
     const prisma = getTestPrisma();
-    const user = await prisma.user.findUnique({
-      where: { email: "new.person@test.local" },
-    });
+    const user = await prisma.user.findUnique({ where: { email } });
     expect(user).not.toBeNull();
     expect(user?.status).toBe("ACTIVE");
 
@@ -63,11 +67,45 @@ describe.skipIf(!hasDatabase)("setFirstPassword integration", () => {
     expect(account).not.toBeNull();
   });
 
-  it("rejects an unknown email that doesn't match a Slack workspace member", async () => {
+  it("rejects a non-company email domain", async () => {
+    const email = "stranger@gmail.com";
+    await storeVerificationCode(email, CODE);
+    const result = await setFirstPassword({
+      email,
+      code: CODE,
+      password: "a-strong-password",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("EMAIL_DOMAIN_NOT_ALLOWED");
+    }
+    expect(lookupByEmail).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid or expired verification code", async () => {
     lookupByEmail.mockResolvedValue({ ok: false });
 
     const result = await setFirstPassword({
-      email: "stranger@outside.example",
+      email: "no.code@therealreal.com",
+      code: "000000",
+      password: "a-strong-password",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("INVALID_OR_EXPIRED_CODE");
+    }
+  });
+
+  it("rejects an unknown email that doesn't match a Slack workspace member", async () => {
+    lookupByEmail.mockResolvedValue({ ok: false });
+
+    const email = "stranger@therealreal.com";
+    await storeVerificationCode(email, CODE);
+    const result = await setFirstPassword({
+      email,
+      code: CODE,
       password: "a-strong-password",
     });
 
@@ -77,15 +115,14 @@ describe.skipIf(!hasDatabase)("setFirstPassword integration", () => {
     }
 
     const prisma = getTestPrisma();
-    const user = await prisma.user.findUnique({
-      where: { email: "stranger@outside.example" },
-    });
+    const user = await prisma.user.findUnique({ where: { email } });
     expect(user).toBeNull();
   });
 
   it("rejects an inactive user without provisioning or reactivating them", async () => {
+    const email = "offboarded@therealreal.com";
     const user = await createActiveUser({
-      email: "offboarded@test.local",
+      email,
       handle: "offboarded",
       name: "Offboarded Person",
     });
@@ -95,8 +132,10 @@ describe.skipIf(!hasDatabase)("setFirstPassword integration", () => {
       data: { status: "INACTIVE" },
     });
 
+    await storeVerificationCode(email, CODE);
     const result = await setFirstPassword({
-      email: "offboarded@test.local",
+      email,
+      code: CODE,
       password: "a-strong-password",
     });
 
@@ -107,29 +146,44 @@ describe.skipIf(!hasDatabase)("setFirstPassword integration", () => {
     expect(lookupByEmail).not.toHaveBeenCalled();
   });
 
-  it("rejects a user who already has a password set", async () => {
-    await createActiveUser({
-      email: "already-set@test.local",
+  it("resets the password for a user who already has one", async () => {
+    const email = "already-set@therealreal.com";
+    const user = await createActiveUser({
+      email,
       handle: "alreadyset",
       name: "Already Set",
     });
-
-    const result = await setFirstPassword({
-      email: "already-set@test.local",
-      password: "a-strong-password",
+    const prisma = getTestPrisma();
+    const before = await prisma.account.findFirstOrThrow({
+      where: { userId: user.id, providerId: "credential" },
+      select: { id: true, password: true },
     });
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe("PASSWORD_ALREADY_SET");
-    }
+    await storeVerificationCode(email, CODE);
+    const result = await setFirstPassword({
+      email,
+      code: CODE,
+      password: "a-brand-new-password",
+    });
+
+    expect(result.ok).toBe(true);
+
+    // The credential is updated in place (same row, new hash), not duplicated.
+    const after = await prisma.account.findMany({
+      where: { userId: user.id, providerId: "credential" },
+      select: { id: true, password: true },
+    });
+    expect(after).toHaveLength(1);
+    expect(after[0].id).toBe(before.id);
+    expect(after[0].password).not.toBe(before.password);
   });
 
   it("sets the password for an existing user with no credential account yet", async () => {
+    const email = "provisioned@therealreal.com";
     const prisma = getTestPrisma();
     const user = await prisma.user.create({
       data: {
-        email: "provisioned@test.local",
+        email,
         emailVerified: true,
         name: "Provisioned Person",
         handle: "provisioned",
@@ -141,8 +195,10 @@ describe.skipIf(!hasDatabase)("setFirstPassword integration", () => {
       data: { userId: user.id, givingBalance: 0, receivedBalance: 0 },
     });
 
+    await storeVerificationCode(email, CODE);
     const result = await setFirstPassword({
-      email: "provisioned@test.local",
+      email,
+      code: CODE,
       password: "a-strong-password",
     });
 

@@ -138,6 +138,7 @@ describe.skipIf(!hasDatabase)("recognition feed integration", () => {
       email: "bob@test.local",
       handle: "bob",
       name: "Bob",
+      givingBalance: 100,
     });
 
     mockSessionUser(toAuthenticatedUser(viewer));
@@ -206,6 +207,7 @@ describe.skipIf(!hasDatabase)("recognition feed integration", () => {
       email: "bob5@test.local",
       handle: "bob5",
       name: "Bob5",
+      givingBalance: 100,
     });
 
     mockSessionUser(toAuthenticatedUser(alice));

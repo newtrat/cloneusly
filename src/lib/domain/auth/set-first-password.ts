@@ -81,41 +81,49 @@ export async function setFirstPassword(
     userEmail = provisioned.email;
   }
 
-  const existingAccount = await prisma.account.findFirst({
-    where: { userId, providerId: "credential" },
-  });
-
-  if (existingAccount) {
-    return err(
-      "PASSWORD_ALREADY_SET",
-      "This account already has a password. Contact an admin if you need it reset.",
-      { correlationId },
-    );
-  }
-
+  // The verified Slack code proves ownership, so this flow both sets a first
+  // password and resets an existing one: update the credential if present,
+  // otherwise create it.
   const hashedPassword = await hashPassword(parsed.data.password);
 
   try {
-    await prisma.account.create({
-      data: {
-        accountId: userId,
-        providerId: "credential",
-        userId,
-        password: hashedPassword,
-      },
+    const existingAccount = await prisma.account.findFirst({
+      where: { userId, providerId: "credential" },
+      select: { id: true },
     });
+
+    if (existingAccount) {
+      await prisma.account.update({
+        where: { id: existingAccount.id },
+        data: { password: hashedPassword },
+      });
+    } else {
+      await prisma.account.create({
+        data: {
+          accountId: userId,
+          providerId: "credential",
+          userId,
+          password: hashedPassword,
+        },
+      });
+    }
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      // A concurrent request won the race and already created the
-      // credential account for this user.
-      return err(
-        "PASSWORD_ALREADY_SET",
-        "This account already has a password. Contact an admin if you need it reset.",
-        { correlationId },
-      );
+      // A concurrent request created the credential first; reset it instead.
+      const raced = await prisma.account.findFirst({
+        where: { userId, providerId: "credential" },
+        select: { id: true },
+      });
+      if (raced) {
+        await prisma.account.update({
+          where: { id: raced.id },
+          data: { password: hashedPassword },
+        });
+        return ok({ email: userEmail });
+      }
     }
 
     logOperation("error", "Failed to set first password", {

@@ -16,6 +16,7 @@ import { withSerializableRetry } from "@/lib/domain/transaction-retry";
 import { normalizeHashtags } from "@/lib/domain/recognition/normalize-hashtags";
 import { prisma } from "@/lib/prisma";
 import { notifyRecognitionRecipients } from "@/lib/slack/notify-recognition";
+import { postRecognitionToChannel } from "@/lib/slack/notify-channel";
 import {
   computeTotalCost,
   hasDuplicateStrings,
@@ -299,14 +300,27 @@ export async function sendRecognitionForUser(
     // errors internally, but we belt-and-suspend with an outer catch so any
     // future regression can never surface a Slack failure to the caller.
     try {
-      await notifyRecognitionRecipients({
-        senderName: sender.name,
-        pointsPerRecipient: data.pointsPerRecipient,
-        recognitionText: data.text ?? null,
-        recognitionId: result.recognition.id,
-        recipientIds: data.recipientIds,
-        correlationId,
-      });
+      await Promise.all([
+        notifyRecognitionRecipients({
+          senderName: sender.name,
+          pointsPerRecipient: data.pointsPerRecipient,
+          recognitionText: data.text ?? null,
+          gifUrl: data.gifUrl ?? null,
+          recognitionId: result.recognition.id,
+          recipientIds: data.recipientIds,
+          correlationId,
+        }),
+        postRecognitionToChannel({
+          senderName: sender.name,
+          pointsPerRecipient: data.pointsPerRecipient,
+          recognitionText: data.text ?? null,
+          hashtags: data.hashtags ?? [],
+          gifUrl: data.gifUrl ?? null,
+          recognitionId: result.recognition.id,
+          recipientIds: data.recipientIds,
+          correlationId,
+        }),
+      ]);
     } catch (slackError) {
       logOperation("error", "Slack recognition fanout crashed", {
         operation: "sendRecognition",

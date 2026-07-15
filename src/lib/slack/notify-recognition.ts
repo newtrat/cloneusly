@@ -12,6 +12,7 @@ export type NotifyRecognitionRecipientsInput = {
   senderName: string;
   pointsPerRecipient: number;
   recognitionText: string | null | undefined;
+  gifUrl?: string | null;
   recognitionId: string;
   recipientIds: string[];
   correlationId?: string;
@@ -80,6 +81,7 @@ export async function notifyRecognitionRecipients(
     senderName: input.senderName,
     pointsPerRecipient: input.pointsPerRecipient,
     recognitionText: input.recognitionText,
+    gifUrl: input.gifUrl,
     feedUrl: feedUrl(),
   });
 

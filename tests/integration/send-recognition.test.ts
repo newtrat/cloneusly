@@ -1,6 +1,9 @@
+import "../fixtures/auth-mock";
+
 import { describe, expect, it, beforeAll, afterAll, beforeEach } from "vitest";
 
 import { sendRecognition } from "@/lib/domain/recognition/send-recognition";
+import { clearSessionUser } from "../fixtures/auth-mock";
 import {
   disconnectTestDatabase,
   getTestDatabaseUrl,
@@ -20,6 +23,7 @@ describe.skipIf(!hasDatabase)("sendRecognition integration", () => {
 
   beforeEach(async () => {
     await resetTestDatabase();
+    clearSessionUser();
   });
 
   afterAll(async () => {

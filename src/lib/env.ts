@@ -32,6 +32,16 @@ const envSchema = z.object({
   SEED_USER_PASSWORD: z.string().min(8).optional(),
   SLACK_SIGNING_SECRET: optionalSecret,
   SLACK_BOT_TOKEN: optionalSecret,
+  // Channel (name or ID) to broadcast recognitions to. Empty disables the
+  // channel post. The bot must be a member of the channel.
+  SLACK_RECOGNITION_CHANNEL: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() === "" ? undefined : value,
+    z
+      .string()
+      .transform((v) => v.trim().replace(/^#/, ""))
+      .optional(),
+  ),
   ALLOWED_SIGNUP_EMAIL_DOMAIN: z
     .string()
     .default("therealreal.com")
