@@ -1,5 +1,5 @@
 export const AUTO_SIGN_IN_FAILED_MESSAGE =
-  "Password set, but we couldn't sign you in automatically. Try signing in.";
+  "Password set, but we couldn't sign you in automatically.";
 
 export type EmailSignIn = (credentials: {
   email: string;
