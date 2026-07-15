@@ -37,6 +37,7 @@ describe.skipIf(!hasDatabase)("achievements integration", () => {
       email: "achievement-viewer@test.local",
       handle: "achievementviewer",
       name: "Achievement Viewer",
+      givingBalance: 100,
     });
     const sender = await createActiveUser({
       email: "achievement-sender@test.local",
