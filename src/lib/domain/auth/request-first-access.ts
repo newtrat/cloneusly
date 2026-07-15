@@ -11,7 +11,6 @@ import {
   findUserByEmailAnyStatus,
 } from "@/lib/domain/users/provision-slack-user";
 import { getEnv } from "@/lib/env";
-import { prisma } from "@/lib/prisma";
 import { sendFirstAccessCode } from "@/lib/slack/send-first-access-code";
 import { isAllowedCompanyEmail } from "@/lib/validation/email-domain";
 import { parseRequestFirstAccessInput } from "@/lib/validation/auth";
@@ -75,8 +74,9 @@ export async function requestFirstAccessLink(
 }
 
 /**
- * An email is eligible when it belongs to an existing account that has not set
- * a password yet, or when it can be provisioned from a matching Slack profile.
+ * An email is eligible when it belongs to an active account (whether or not it
+ * already has a password — the flow supports both first-time setup and password
+ * reset), or when it can be provisioned from a matching Slack profile.
  */
 async function isEligibleForFirstAccess(
   email: string,
@@ -84,12 +84,7 @@ async function isEligibleForFirstAccess(
 ): Promise<boolean> {
   const existing = await findUserByEmailAnyStatus(email);
   if (existing) {
-    if (existing.status !== "ACTIVE") return false;
-    const account = await prisma.account.findFirst({
-      where: { userId: existing.id, providerId: "credential" },
-      select: { id: true },
-    });
-    return account === null;
+    return existing.status === "ACTIVE";
   }
 
   return hasSlackProfile;
