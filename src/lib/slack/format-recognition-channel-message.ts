@@ -52,8 +52,7 @@ export function formatRecognitionChannelMessage(
 
   const headline =
     `:tada: *${escapeMrkdwn(senderName)}* recognized ` +
-    `*${recipients}* with *+${points} ${pluralPoints(points)}*` +
-    (recipients ? "" : "");
+    `*${recipients}* with *+${points} ${pluralPoints(points)}*`;
 
   const blocks: Array<Record<string, unknown>> = [
     { type: "section", text: { type: "mrkdwn", text: headline } },
