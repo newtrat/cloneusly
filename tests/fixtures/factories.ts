@@ -55,6 +55,49 @@ export async function createActiveUser(input: {
     },
   });
 
+  // Back any seeded starting balances with ledger entries so the immutable
+  // ledger stays consistent with the account balances (sum of entries == balance).
+  if (givingBalance > 0 || receivedBalance > 0) {
+    const now = new Date();
+    const transaction = await prisma.pointTransaction.create({
+      data: {
+        kind: "TEST_TOP_UP",
+        actorUserId: user.id,
+        idempotencyScope: `factory:${user.id}`,
+        idempotencyKey: "initial-balance",
+        requestHash: `factory-initial-${user.id}`,
+        createdAt: now,
+      },
+    });
+
+    const entries: {
+      transactionId: string;
+      userId: string;
+      bucket: "GIVING" | "RECEIVED";
+      delta: number;
+      createdAt: Date;
+    }[] = [];
+    if (givingBalance > 0) {
+      entries.push({
+        transactionId: transaction.id,
+        userId: user.id,
+        bucket: "GIVING",
+        delta: givingBalance,
+        createdAt: now,
+      });
+    }
+    if (receivedBalance > 0) {
+      entries.push({
+        transactionId: transaction.id,
+        userId: user.id,
+        bucket: "RECEIVED",
+        delta: receivedBalance,
+        createdAt: now,
+      });
+    }
+    await prisma.pointEntry.createMany({ data: entries });
+  }
+
   return {
     id: user.id,
     email: user.email,
