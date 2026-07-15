@@ -42,15 +42,12 @@ export function GifPicker({ onSelect, onClose }: GifPickerProps) {
 
   return (
     <div className="mt-2 rounded-md border border-border bg-white p-3 shadow-sm">
-      <div className="mb-3 flex items-center gap-2">
-        <input
-          type="search"
-          autoFocus
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search GIFs…"
-          aria-label="Search GIFs"
-          className="w-full rounded-md border border-border px-3 py-2"
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <Image
+          src="/powered-by-giphy.png"
+          alt="Powered by GIPHY"
+          width={154}
+          height={20}
         />
         <button
           type="button"
@@ -61,6 +58,15 @@ export function GifPicker({ onSelect, onClose }: GifPickerProps) {
           Close
         </button>
       </div>
+      <input
+        type="search"
+        autoFocus
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search GIFs…"
+        aria-label="Search GIFs"
+        className="mb-3 w-full rounded-md border border-border px-3 py-2"
+      />
 
       {error ? (
         <p role="alert" className="py-6 text-center text-sm text-destructive">
