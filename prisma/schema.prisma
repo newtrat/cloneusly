@@ -126,10 +126,14 @@ model Verification {
 }
 
 model PointAccount {
-  userId          String   @id
-  givingBalance   Int      @default(0)
-  receivedBalance Int      @default(0)
-  updatedAt       DateTime @updatedAt
+  userId                 String   @id
+  givingBalance          Int      @default(0)
+  // Portion of givingBalance that came from converting received points. These
+  // are spent only after the monthly allowance and do NOT expire on the
+  // monthly reset (they last until used).
+  convertedGivingBalance Int      @default(0)
+  receivedBalance        Int      @default(0)
+  updatedAt              DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 

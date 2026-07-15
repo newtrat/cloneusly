@@ -2,8 +2,13 @@ import "../fixtures/auth-mock";
 
 import { describe, expect, it, beforeAll, afterAll, beforeEach, vi } from "vitest";
 
+import { convertReceivedPoints } from "@/lib/domain/points/convert-points";
 import { createTestTopUp } from "@/lib/domain/points/create-test-topup";
-import { reconcileMonthlyGrants } from "@/lib/domain/points/reconcile-monthly-grants";
+import {
+  grantUserMonthlyAllowance,
+  reconcileMonthlyGrants,
+} from "@/lib/domain/points/reconcile-monthly-grants";
+import { sendRecognitionForUser } from "@/lib/domain/recognition/send-recognition";
 import {
   clearSessionUser,
   mockSessionUser,
@@ -15,7 +20,7 @@ import {
   resetTestDatabase,
   getTestPrisma,
 } from "../fixtures/database";
-import { createActiveUser } from "../fixtures/factories";
+import { createActiveUser, createRecognition } from "../fixtures/factories";
 import { expectLedgerMatchesBalances } from "../fixtures/ledger-assertions";
 
 const hasDatabase = Boolean(getTestDatabaseUrl());
@@ -57,6 +62,169 @@ describe.skipIf(!hasDatabase)("grants and top-ups integration", () => {
     const prisma = getTestPrisma();
     const grants = await prisma.monthlyGrant.count();
     expect(grants).toBe(2);
+  });
+
+  it("resets the giving allowance each month instead of accumulating, leaving received untouched", async () => {
+    const prisma = getTestPrisma();
+    const alice = await createActiveUser({
+      email: "reset-a@test.local",
+      handle: "reseta",
+      name: "Reset A",
+    });
+    const bob = await createActiveUser({
+      email: "reset-b@test.local",
+      handle: "resetb",
+      name: "Reset B",
+    });
+
+    const month1 = new Date("2026-01-01T00:00:00.000Z");
+    const month2 = new Date("2026-02-01T00:00:00.000Z");
+
+    // Month 1: allowance granted, then Alice spends 60 of it on Bob.
+    await grantUserMonthlyAllowance(alice.id, month1);
+    await createRecognition({
+      senderId: alice.id,
+      recipientIds: [bob.id],
+      pointsPerRecipient: 60,
+    });
+
+    const aliceAfterMonth1 = await prisma.pointAccount.findUniqueOrThrow({
+      where: { userId: alice.id },
+    });
+    expect(aliceAfterMonth1.givingBalance).toBe(40);
+
+    // Month 2: leftover expires and the allowance resets to exactly 100
+    // (cumulative behavior would have produced 140).
+    const outcome = await grantUserMonthlyAllowance(alice.id, month2);
+    expect(outcome).toBe("granted");
+
+    const aliceAfterMonth2 = await prisma.pointAccount.findUniqueOrThrow({
+      where: { userId: alice.id },
+    });
+    expect(aliceAfterMonth2.givingBalance).toBe(100);
+    expect(aliceAfterMonth2.receivedBalance).toBe(0);
+
+    // Received points accumulate and are never touched by the monthly reset.
+    const bobAccount = await prisma.pointAccount.findUniqueOrThrow({
+      where: { userId: bob.id },
+    });
+    expect(bobAccount.receivedBalance).toBe(60);
+
+    await expectLedgerMatchesBalances(alice.id);
+    await expectLedgerMatchesBalances(bob.id);
+  });
+
+  it("preserves converted points across the monthly reset while expiring unused allowance", async () => {
+    const prisma = getTestPrisma();
+    const alice = await createActiveUser({
+      email: "conv-a@test.local",
+      handle: "conva",
+      name: "Conv A",
+    });
+    const bob = await createActiveUser({
+      email: "conv-b@test.local",
+      handle: "convb",
+      name: "Conv B",
+    });
+
+    const month1 = new Date("2026-01-01T00:00:00.000Z");
+    const month2 = new Date("2026-02-01T00:00:00.000Z");
+
+    // Bob recognizes Alice so she has received points to convert.
+    await grantUserMonthlyAllowance(bob.id, month1);
+    await createRecognition({
+      senderId: bob.id,
+      recipientIds: [alice.id],
+      pointsPerRecipient: 60,
+    });
+
+    // Alice gets her allowance and converts 50 received -> giving.
+    await grantUserMonthlyAllowance(alice.id, month1);
+    mockSessionUser(toAuthenticatedUser(alice));
+    const conversion = await convertReceivedPoints({
+      requestId: "conv-req-1",
+      amount: 50,
+    });
+    expect(conversion.ok).toBe(true);
+
+    const aliceAfterConvert = await prisma.pointAccount.findUniqueOrThrow({
+      where: { userId: alice.id },
+    });
+    expect(aliceAfterConvert.givingBalance).toBe(150); // 100 allowance + 50 converted
+    expect(aliceAfterConvert.convertedGivingBalance).toBe(50);
+    expect(aliceAfterConvert.receivedBalance).toBe(10);
+
+    // New month: unused allowance (100) expires, converted 50 is preserved,
+    // fresh 100 is granted -> 150 (not 250 cumulative, not 100 pure reset).
+    await grantUserMonthlyAllowance(alice.id, month2);
+
+    const aliceAfterReset = await prisma.pointAccount.findUniqueOrThrow({
+      where: { userId: alice.id },
+    });
+    expect(aliceAfterReset.givingBalance).toBe(150);
+    expect(aliceAfterReset.convertedGivingBalance).toBe(50);
+    expect(aliceAfterReset.receivedBalance).toBe(10);
+
+    await expectLedgerMatchesBalances(alice.id);
+  });
+
+  it("spends the monthly allowance before dipping into converted points", async () => {
+    const prisma = getTestPrisma();
+    const alice = await createActiveUser({
+      email: "dip-a@test.local",
+      handle: "dipa",
+      name: "Dip A",
+    });
+    const bob = await createActiveUser({
+      email: "dip-b@test.local",
+      handle: "dipb",
+      name: "Dip B",
+    });
+    const month1 = new Date("2026-01-01T00:00:00.000Z");
+
+    // Give Alice received points (from Bob) and let her convert 80 of them.
+    await grantUserMonthlyAllowance(bob.id, month1);
+    await createRecognition({
+      senderId: bob.id,
+      recipientIds: [alice.id],
+      pointsPerRecipient: 80,
+    });
+    await grantUserMonthlyAllowance(alice.id, month1);
+    mockSessionUser(toAuthenticatedUser(alice));
+    await convertReceivedPoints({ requestId: "dip-conv", amount: 80 });
+
+    // Alice now has giving 180 (100 allowance + 80 converted).
+    const aliceUser = toAuthenticatedUser(alice);
+
+    // Spend 30 — within the allowance, converted points untouched.
+    const r1 = await sendRecognitionForUser(aliceUser, {
+      requestId: "dip-send-1",
+      recipientIds: [bob.id],
+      pointsPerRecipient: 30,
+      text: "thanks",
+    });
+    expect(r1.ok).toBe(true);
+    let acct = await prisma.pointAccount.findUniqueOrThrow({
+      where: { userId: alice.id },
+    });
+    expect(acct.givingBalance).toBe(150);
+    expect(acct.convertedGivingBalance).toBe(80);
+
+    // Spend 120 — allowance left is 70, so this dips 50 into converted points.
+    const r2 = await sendRecognitionForUser(aliceUser, {
+      requestId: "dip-send-2",
+      recipientIds: [bob.id],
+      pointsPerRecipient: 120,
+      text: "big thanks",
+    });
+    expect(r2.ok).toBe(true);
+    acct = await prisma.pointAccount.findUniqueOrThrow({
+      where: { userId: alice.id },
+    });
+    expect(acct.givingBalance).toBe(30);
+    expect(acct.convertedGivingBalance).toBe(30);
+
+    await expectLedgerMatchesBalances(alice.id);
   });
 
   it("skips inactive users for monthly grants", async () => {

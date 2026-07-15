@@ -113,6 +113,21 @@ export async function grantUserMonthlyAllowance(
           if (priorGrant) return;
 
           const now = new Date();
+
+          // The monthly giving allowance does not carry over: any unused
+          // allowance expires and resets to MONTHLY_GRANT_AMOUNT. Converted
+          // points (received -> giving) are preserved — they last until used.
+          // Received points are a separate balance and are never touched here.
+          const account = await tx.pointAccount.findUnique({
+            where: { userId },
+            select: { givingBalance: true, convertedGivingBalance: true },
+          });
+          const converted = account?.convertedGivingBalance ?? 0;
+          const allowanceLeftover = Math.max(
+            0,
+            (account?.givingBalance ?? 0) - converted,
+          );
+
           const transaction = await tx.pointTransaction.create({
             data: {
               kind: "MONTHLY_GRANT",
@@ -134,6 +149,21 @@ export async function grantUserMonthlyAllowance(
             },
           });
 
+          // Expire only the unused allowance (immutable ledger: recorded as a
+          // negative entry rather than a silent balance edit). Converted points
+          // are left in place.
+          if (allowanceLeftover > 0) {
+            await tx.pointEntry.create({
+              data: {
+                transactionId: transaction.id,
+                userId,
+                bucket: "GIVING",
+                delta: -allowanceLeftover,
+                createdAt: now,
+              },
+            });
+          }
+
           await tx.pointEntry.create({
             data: {
               transactionId: transaction.id,
@@ -144,9 +174,10 @@ export async function grantUserMonthlyAllowance(
             },
           });
 
+          // New giving balance = preserved converted points + fresh allowance.
           await tx.pointAccount.update({
             where: { userId },
-            data: { givingBalance: { increment: MONTHLY_GRANT_AMOUNT } },
+            data: { givingBalance: converted + MONTHLY_GRANT_AMOUNT },
           });
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
