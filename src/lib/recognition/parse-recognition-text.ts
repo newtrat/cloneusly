@@ -5,13 +5,15 @@ export type ParsedRecognitionText = {
   messageText: string;
 };
 
+/** Same handle charset as Slack's PLAIN_HANDLE_MENTION_RE ([A-Za-z0-9._-]). */
+const HANDLE_MENTION_RE = /@([A-Za-z0-9._-]+)/g;
+
 export function parseRecognitionText(raw: string): ParsedRecognitionText {
-  // Handles may include hyphens, dots, etc. — stop only on whitespace.
-  const handles = [...raw.matchAll(/@(\S+)/g)].map((m) => m[1]);
+  const handles = [...raw.matchAll(HANDLE_MENTION_RE)].map((m) => m[1]);
   const pointsMatch = raw.match(/\+(\d+)/);
   const hashtags = [...raw.matchAll(/#(\w+)/g)].map((m) => m[1]);
   const messageText = raw
-    .replace(/@\S+/g, "")
+    .replace(HANDLE_MENTION_RE, "")
     .replace(/\+\d+/g, "")
     .replace(/#\w+/g, "")
     .replace(/\s+/g, " ")
