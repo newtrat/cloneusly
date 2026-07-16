@@ -26,6 +26,15 @@ type RecognitionFormProps = {
   onSuccess?: () => void;
 };
 
+// TRR company values, offered as one-tap suggestions (never forced).
+const SUGGESTED_HASHTAGS = [
+  "resilience",
+  "empowerment",
+  "authenticity",
+  "love",
+  "smarts",
+] as const;
+
 type MentionState = {
   query: string;
   triggerIndex: number;
@@ -161,6 +170,13 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
         "Couldn’t read a GIF from that. Drag the GIF image itself, or use the GIF button.",
       );
     }
+  }
+
+  function addSuggestedHashtag(tag: string) {
+    if (pending || parsed.hashtags.includes(tag)) return;
+    const sep = rawText.length === 0 || /\s$/.test(rawText) ? "" : " ";
+    setRawText(`${rawText}${sep}#${tag} `);
+    textareaRef.current?.focus();
   }
 
   function insertAtCursor(text: string) {
@@ -356,6 +372,26 @@ export function RecognitionForm({ onSuccess }: RecognitionFormProps) {
                 </Button>
               </div>
             </div>
+          </div>
+
+          {/* Suggested company-value hashtags */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-muted-foreground text-xs">Suggested:</span>
+            {SUGGESTED_HASHTAGS.map((tag) => {
+              const active = parsed.hashtags.includes(tag);
+              return (
+                <Button
+                  key={tag}
+                  type="button"
+                  variant={active ? "default" : "outline"}
+                  size="xs"
+                  disabled={pending || active}
+                  onClick={() => addSuggestedHashtag(tag)}
+                >
+                  #{tag}
+                </Button>
+              );
+            })}
           </div>
 
           {/* Live parse preview */}
