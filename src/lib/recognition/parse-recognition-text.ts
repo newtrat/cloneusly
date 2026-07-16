@@ -6,11 +6,12 @@ export type ParsedRecognitionText = {
 };
 
 export function parseRecognitionText(raw: string): ParsedRecognitionText {
-  const handles = [...raw.matchAll(/@([\w.]+)/g)].map((m) => m[1]);
+  // Handles may include hyphens, dots, etc. — stop only on whitespace.
+  const handles = [...raw.matchAll(/@(\S+)/g)].map((m) => m[1]);
   const pointsMatch = raw.match(/\+(\d+)/);
   const hashtags = [...raw.matchAll(/#(\w+)/g)].map((m) => m[1]);
   const messageText = raw
-    .replace(/@[\w.]+/g, "")
+    .replace(/@\S+/g, "")
     .replace(/\+\d+/g, "")
     .replace(/#\w+/g, "")
     .replace(/\s+/g, " ")
