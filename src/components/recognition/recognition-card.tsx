@@ -46,8 +46,11 @@ export function RecognitionCard({
                 {sender.name}
               </Link>
               <span className="text-muted-foreground"> @{sender.handle}</span>{" "}
-              sent <span className="font-semibold">{totalPoints}</span> points (
-              {pointsPerRecipient} each) to{" "}
+              sent <span className="font-semibold">{totalPoints}</span> points
+              {recipients.length > 1
+                ? ` (${pointsPerRecipient} each)`
+                : ""}{" "}
+              to{" "}
               {recipients.map((r, i) => (
                 <span key={r.id}>
                   {i > 0 ? (i === recipients.length - 1 ? " and " : ", ") : ""}

@@ -23,6 +23,17 @@ describe("parseRecognitionText", () => {
       const result = parseRecognitionText("@venkata.pallepu was amazing");
       expect(result.handles).toEqual(["venkata.pallepu"]);
     });
+
+    it("handles @handles with hyphens", () => {
+      const result = parseRecognitionText("@jon-eric.cook +10 for the new PR");
+      expect(result.handles).toEqual(["jon-eric.cook"]);
+    });
+
+    it("stops at punctuation after a handle", () => {
+      const result = parseRecognitionText("@alice, thanks for the help +5");
+      expect(result.handles).toEqual(["alice"]);
+      expect(result.messageText).toBe(", thanks for the help");
+    });
   });
 
   describe("points", () => {
